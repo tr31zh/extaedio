@@ -42,7 +42,7 @@ def customize_plot():
     st.header("Selected data frame")
     st.dataframe(df.describe())
 
-    st.header("Customize your plot")
+    st.header("Plotting options")
 
     # Select mode
     plot_mode = st.selectbox(
@@ -50,10 +50,6 @@ def customize_plot():
     )
     if plot_mode == "Pick one...":
         return
-    if plot_mode == "Static":
-        st.info("Preparing static plot")
-    elif plot_mode == "Animation":
-        st.info("Preparing animated plot")
 
     # Select type
     allowed_plots = [
@@ -68,6 +64,7 @@ def customize_plot():
         return
 
     # Filter
+    st.header("Filtering")
     filter_columns = st.multiselect(
         label="Select which columns you want to filter:",
         options=(df.select_dtypes(include=["object", "datetime"]).columns.to_list()),
@@ -75,7 +72,7 @@ def customize_plot():
     )
     filters = {}
     for column in filter_columns:
-        st.info(f"{column}: ")
+        st.subheader(f"{column}: ")
         sellect_all = st.checkbox(label=f"{column} Select all:")
         elements = list(df[column].unique())
         filters[column] = st.multiselect(
@@ -88,9 +85,10 @@ def customize_plot():
     if len(filters) > 0:
         for k, v in filters.items():
             df = df[df[k].isin(v)]
-        st.header("filtered data frame")
+        st.subheader("filtered data frame")
         st.dataframe(df.describe())
 
+    st.header("Plot customization")
     # Customize X axis
     if plot_type in ["scatter", "line"]:
         x_axis = st.selectbox(
@@ -113,27 +111,34 @@ def customize_plot():
     if y_axis == "Pick one...":
         return
 
-    common_dict = {"data_frame": df, "x": x_axis, "y": y_axis, "width": 800, "height": 600}
-    if plot_type == "scatter":
-        st.info("Configured scatter")
-        fig = px.scatter(**common_dict)
-    elif plot_type == "line":
-        st.info("Configured line")
-        fig = px.line()(**common_dict)
-    elif plot_type == "bar":
-        st.info("Configured bar")
-        fig = px.bar()(**common_dict)
-    else:
-        st.info("Configured nothing")
-        fig = None
+    # Color column
+    color = st.selectbox(
+        label="Use this column for color separation:",
+        options=["Pick one..."]
+        + df.select_dtypes(include=["object", "datetime"]).columns.to_list(),
+        index=0,
+    )
 
-    if fig is not None:
-        st.info("before figure")
-        st.plotly_chart(figure_or_data=fig)
-        st.info("after figure")
+    if st.button(label="Render plot"):
+        common_dict = {
+            "data_frame": df,
+            "x": x_axis,
+            "y": y_axis,
+            "color": color if color != "Pick one..." else None,
+            "width": 800,
+            "height": 600,
+        }
+        if plot_type == "scatter":
+            fig = px.scatter(**common_dict)
+        elif plot_type == "line":
+            fig = px.line(**common_dict)
+        elif plot_type == "bar":
+            fig = px.bar(**common_dict)
+        else:
+            fig = None
 
-    else:
-        st.error("No figure")
+        if fig is not None:
+            st.plotly_chart(figure_or_data=fig)
 
 
 customize_plot()
