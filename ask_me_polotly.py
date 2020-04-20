@@ -20,6 +20,7 @@ build a visualization."""
 use_side_bar = st.checkbox(
     label="Put to questions to customize the plot in th sidebar? Recommended", value=True
 )
+show_advanced_settings = st.checkbox(label="Show customization advanced options", value=False)
 
 url_csse = "url_csse"
 url_covid_data = "https://raw.githubusercontent.com/coviddata/coviddata/master/data/sources/jhu_csse/standardized/standardized.csv"
@@ -201,7 +202,7 @@ def customize_plot():
     elif plot_type == "bar":
         x_columns = [PICK_ONE] + cat_columns
     elif plot_type == "histogram":
-        x_columns = [PICK_ONE] + cat_columns
+        x_columns = [PICK_ONE] + df.columns.to_list()
     else:
         st.warning("""Unknown  plot type.""")
         return
@@ -210,6 +211,8 @@ def customize_plot():
         options=x_columns,
         index=x_columns.index(time_column) if time_column != PICK_ONE in x_columns else 0,
     )
+    if show_advanced_settings and x_axis in num_columns:
+        log_x = qs.checkbox(label="Log X axis?")
     if x_axis == PICK_ONE:
         st.warning("""Please pic a column for the X AXIS.""")
         return
@@ -227,11 +230,14 @@ def customize_plot():
                 "max": "Maximum",
             }.get(x, "Unknown histogram mode"),
         )
+        y_axis = None
     else:
         # Customize Y axis
         y_axis = qs.selectbox(
             label="Y axis", options=[PICK_ONE] + df.columns.to_list(), index=0
         )
+        if show_advanced_settings and y_axis in num_columns:
+            log_y = qs.checkbox(label="Log Y axis?")
         if y_axis == PICK_ONE:
             st.warning("""Please pic a column for the X AXIS.""")
             return
@@ -243,12 +249,7 @@ def customize_plot():
         index=0,
     )
 
-    if qs.checkbox(label="Show advanced options", value=False):
-        # Log
-        if x_axis in num_columns:
-            log_x = qs.checkbox(label="Log X axis?")
-        if plot_type != "histogram" and y_axis in num_columns:
-            log_y = qs.checkbox(label="Log Y axis?")
+    if show_advanced_settings:
         # Dot size
         if plot_type in [
             "scatter",
@@ -279,6 +280,39 @@ def customize_plot():
             options=[PICK_ONE] + cat_columns,
             index=0,
         )
+        # Histogram specific parameters
+        if plot_type == "histogram":
+            available_marginals = ["none", "rug", "box", "violin", "histogram"]
+            marginals = qs.selectbox(label="Marginals", options=available_marginals, index=0)
+            orientation = qs.selectbox(
+                label="orientation",
+                options=["v", "h"],
+                format_func=lambda x: {"v": "vertical", "h": "horizontal"}.get(
+                    x, "unknown value"
+                ),
+                index=0,
+            )
+            bar_mode = qs.selectbox(
+                label="bar mode", options=["group", "overlay", "relative"], index=2
+            )
+        # Template
+        template = qs.selectbox(
+            label="Plot template: ",
+            options=[
+                "ggplot2",
+                "seaborn",
+                "simple_white",
+                "plotly",
+                "plotly_white",
+                "plotly_dark",
+                "presentation",
+                "xgridoff",
+                "ygridoff",
+                "gridon",
+                "none",
+            ],
+            index=0,
+        )
     else:
         dot_size = PICK_ONE
         max_dot_size = 60
@@ -287,26 +321,19 @@ def customize_plot():
         facet_row = PICK_ONE
         log_x = False
         log_y = False
+        template = "ggplot2"
+        marginals = None
+        orientation = "v"
+        bar_mode = "relative"
 
-    # Template
-    template = qs.selectbox(
-        label="Plot template: ",
-        options=[
-            "ggplot2",
-            "seaborn",
-            "simple_white",
-            "plotly",
-            "plotly_white",
-            "plotly_dark",
-            "presentation",
-            "xgridoff",
-            "ygridoff",
-            "gridon",
-            "none",
-        ],
-        index=0,
+    size = qs.selectbox(
+        label="Plot resolution",
+        options=["800x600", "1024x768", "1200x800", "1920x1080"],
+        index=2,
     )
+    width, height = [int(x) for x in size.split("x")]
 
+    st.header("Plot")
     if plot_mode == "Animation" and not st.button("Render"):
         st.info(
             """Since animations may tak long to initialize, 
@@ -317,8 +344,8 @@ def customize_plot():
         "x": x_axis,
         "y": y_axis,
         "color": color if color != PICK_ONE else None,
-        "width": 800,
-        "height": 600,
+        "width": width,
+        "height": height,
         "template": template,
     }
     if plot_mode == "Animation":
@@ -361,6 +388,17 @@ def customize_plot():
         fig = px.line(**common_dict)
     elif plot_type == "bar":
         fig = px.bar(**common_dict)
+    elif plot_type == "histogram":
+        if orientation == "h":
+            common_dict["x"] = None
+            common_dict["y"] = x_axis
+        fig = px.histogram(
+            **common_dict,
+            histfunc=hist_func,
+            marginal=None if marginals == "none" else marginals,
+            orientation=orientation,
+            barmode=bar_mode,
+        )
     else:
         fig = None
 
