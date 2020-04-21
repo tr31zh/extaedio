@@ -4,6 +4,7 @@ import numpy as np
 import plotly.express as px
 import io
 from sklearn import datasets
+from datetime import datetime as dt
 
 from dw_cssegis_data import get_wrangled_cssegis_df
 
@@ -21,6 +22,8 @@ PLOT_DENSITY_CONTOUR = "Density contour"
 PLOT_PARALLEL_CATEGORIES = "Parallel categories"
 PLOT_PARALLEL_COORDINATES = "Parallel coordinates"
 PLOT_SCATTER_MATRIX = "Scatter matrix"
+
+PLOT_HAS_TEXT = [PLOT_SCATTER, PLOT_LINE, PLOT_BAR]
 
 URL_CSSE = "url_csse"
 URL_COVID_DATA = "https://raw.githubusercontent.com/coviddata/coviddata/master/data/sources/jhu_csse/standardized/standardized.csv"
@@ -69,7 +72,7 @@ def format_csv_link(url):
 
 
 @st.cache
-def get_datafrmae(url):
+def get_dataframe_from_url(url):
     if url == PICK_ONE:
         return None
     elif isinstance(url, io.StringIO):
@@ -116,7 +119,9 @@ st.subheader("Advanced settings, the more you check the weirder it gets.")
 show_dw_options = st.checkbox(
     label="Show dataframe customization options - Remove columns or rows."
 )
-show_advanced_settings = st.checkbox(label="Show customization advanced options", value=False)
+show_advanced_settings = st.checkbox(
+    label="Show plot customization advanced options", value=False
+)
 
 
 def filter_none(value):
@@ -147,13 +152,11 @@ def customize_plot():
     if selected_file == "Load local file":
         selected_file = st.file_uploader(label="Select file to upload")
         if selected_file is None:
-            if selected_file != PICK_ONE:
-                st.error("Unknown file loaded")
             return
-    df_loaded = get_datafrmae(url=selected_file)
+    df_loaded = get_dataframe_from_url(url=selected_file)
     if df_loaded is None:
         return
-    df = df_loaded.copy()
+    df = df_loaded.copy().reset_index(drop=True)
 
     if show_dw_options:
         # Filter
@@ -174,13 +177,10 @@ def customize_plot():
         )
         df = df[kept_columns]
 
-        num_columns = df.select_dtypes(include=[np.number]).columns.to_list()
-        cat_columns = df.select_dtypes(include=["object", "datetime"]).columns.to_list()
-
         st.subheader("Filter rows")
         filter_columns = st.multiselect(
             label="Select which columns you want to use to filter the rows:",
-            options=cat_columns,
+            options=df.select_dtypes(include=["object", "datetime"]).columns.to_list(),
             default=None,
         )
         filters = {}
@@ -203,17 +203,28 @@ def customize_plot():
         if st.checkbox(label="Remove rows with NA values", value=False):
             df = df.dropna(axis="index")
 
-        df = df.reset_index()
+        df = df.reset_index(drop=True)
 
         # Preview dataframe
         st.subheader("filtered data frame")
         st.dataframe(df.describe())
 
-    num_columns = df.select_dtypes(include=[np.number]).columns.to_list()
-    cat_columns = df.select_dtypes(include=["object", "datetime"]).columns.to_list()
-
     st.header("Detect time/date column")
-    usual_time_columns = ["date", "date_time", "datetime", "timestamp", "time", "daterep"]
+    st.info(
+        """Select the the column to use as time index for the animations, 
+        if no column is selected animations will be disabled.  
+        If you have 'year', 'month', 'day' columns, pick one and ask to convert date, 
+        the others will be merged automatically if they're present.  
+        A new column will be generated"""
+    )
+    usual_time_columns = [
+        "date",
+        "date_time",
+        "datetime",
+        "timestamp",
+        "time",
+        "daterep",
+    ]
     time_columns = [col for col in df.columns.to_list() if col.lower() in usual_time_columns]
     if not time_columns:
         time_columns = [NONE_SELECTED]
@@ -221,14 +232,45 @@ def customize_plot():
         [col for col in df.columns.to_list() if col.lower() not in time_columns]
     )
     time_column = st.selectbox(label="Date/time column: ", options=time_columns, index=0,)
-    if time_column != NONE_SELECTED:
+    if time_column != NONE_SELECTED and (
+        time_column in usual_time_columns or st.checkbox(label="Convert to date")
+    ):
         try:
-            df[time_column] = pd.to_datetime(df[time_column])
+            new_time_column = "date_pmgd_" + dt.now().strftime("%Y%m%d")
+            if time_column.lower() in ["year", "month", "day"]:
+                cf_columns = [c.casefold() for c in df.columns.to_list()]
+                src_columns = [c for c in df.columns.to_list()]
+                if "year".casefold() in cf_columns:
+                    date_series = df[src_columns[cf_columns.index("year".casefold())]].astype(
+                        "str"
+                    )
+                else:
+                    date_series = dt.now().strftime("%Y")
+                if "month".casefold() in cf_columns:
+                    date_series = (
+                        date_series
+                        + "-"
+                        + df[src_columns[cf_columns.index("month".casefold())]].astype("str")
+                    )
+                else:
+                    date_series = date_series + "-01"
+                if "day".casefold() in cf_columns:
+                    date_series = (
+                        date_series
+                        + "-"
+                        + df[src_columns[cf_columns.index("day".casefold())]].astype("str")
+                    )
+                else:
+                    date_series = date_series + "-01"
+                df[new_time_column] = pd.to_datetime(date_series)
+            else:
+                df[new_time_column] = pd.to_datetime(df[time_column])
+            time_column = new_time_column
         except Exception as e:
-            st.error(f"Unable to set {time_column} as time reference column")
+            st.error(f"Unable to set {time_column} as time reference column because {repr(e)}")
             time_column = NONE_SELECTED
         else:
-            st.info("First timestamps")
+            st.subheader("First timestamps")
             df = df.sort_values([time_column])
             st.write([str(i) for i in df[time_column].to_list()[:5]])
 
@@ -238,15 +280,24 @@ def customize_plot():
     else:
         st.header("Plot customization")
 
+    num_columns = df.select_dtypes(include=[np.number]).columns.to_list()
+    cat_columns = df.select_dtypes(include=["object", "datetime"]).columns.to_list()
+    all_columns = df.columns.to_list()
+
     # Select mode
     if time_column == NONE_SELECTED:
         plot_mode = "Static"
     else:
-        plot_modes = [PICK_ONE, "Static", "Animation"]
-        plot_mode = qs.selectbox(label="Plot mode: ", options=plot_modes, index=0,)
-        if plot_mode == PICK_ONE:
-            st.warning("""Please pic a PLOT MODE.""")
-            return
+        plot_mode = qs.selectbox(
+            label="Plot mode: ", options=[PICK_ONE, "Static", "Animation"], index=0,
+        )
+    if plot_mode == PICK_ONE:
+        st.warning("""Please pic a PLOT MODE.""")
+        return
+    if plot_mode == "Animation":
+        anim_cat_group = qs.selectbox(
+            label="Animation category group", options=[NONE_SELECTED] + cat_columns, index=0
+        )
 
     # Select type
     allowed_plots = [
@@ -258,12 +309,16 @@ def customize_plot():
         PLOT_BOX,
         PLOT_DENSITY_HEATMAP,
         PLOT_DENSITY_CONTOUR,
-        PLOT_PARALLEL_CATEGORIES,
-        PLOT_PARALLEL_COORDINATES,
-        PLOT_SCATTER_MATRIX,
     ]
     if plot_mode == "Static":
-        allowed_plots.append(PLOT_LINE)
+        allowed_plots.extend(
+            [
+                PLOT_LINE,
+                PLOT_PARALLEL_CATEGORIES,
+                PLOT_PARALLEL_COORDINATES,
+                PLOT_SCATTER_MATRIX,
+            ]
+        )
     plot_type = qs.selectbox(label="Plot type: ", options=allowed_plots, index=0,)
     if plot_type == PICK_ONE:
         st.warning("""Please pic a PLOT TYPE.""")
@@ -271,17 +326,17 @@ def customize_plot():
 
     # Customize X axis
     if plot_type in [PLOT_SCATTER, PLOT_LINE]:
-        x_columns = [PICK_ONE] + df.columns.to_list()
-        y_columns = [PICK_ONE] + df.columns.to_list()
+        x_columns = [PICK_ONE] + all_columns
+        y_columns = [PICK_ONE] + all_columns
     elif plot_type in [PLOT_BAR]:
         x_columns = [PICK_ONE] + cat_columns
-        y_columns = [PICK_ONE] + df.columns.to_list()
+        y_columns = [PICK_ONE] + all_columns
     elif plot_type in [PLOT_BOX, PLOT_VIOLIN]:
         x_columns = [NONE_SELECTED] + cat_columns
-        y_columns = [PICK_ONE] + df.columns.to_list()
+        y_columns = [PICK_ONE] + all_columns
     elif plot_type == PLOT_HISTOGRAM:
-        x_columns = [PICK_ONE] + df.columns.to_list()
-        y_columns = [PICK_ONE] + df.columns.to_list()
+        x_columns = [PICK_ONE] + all_columns
+        y_columns = [PICK_ONE] + all_columns
     elif plot_type in [PLOT_DENSITY_HEATMAP, PLOT_DENSITY_CONTOUR]:
         x_columns = [PICK_ONE] + num_columns
         y_columns = [PICK_ONE] + num_columns
@@ -304,16 +359,18 @@ def customize_plot():
             label="X axis",
             options=x_columns,
             index=x_columns.index(time_column)
-            if time_column != NONE_SELECTED in x_columns
+            if (time_column in x_columns) and (plot_mode != "Animation")
             else 0,
         )
         if (
             show_advanced_settings
             and x_axis in num_columns
             and plot_type
-            in [PLOT_SCATTER, PLOT_LINE, PLOT_DENSITY_HEATMAP, PLOT_DENSITY_CONTOUR]
+            not in [PLOT_PARALLEL_CATEGORIES, PLOT_PARALLEL_COORDINATES, PLOT_SCATTER_MATRIX]
         ):
             log_x = qs.checkbox(label="Log X axis?")
+        else:
+            log_x = False
         if x_axis == PICK_ONE:
             st.warning("""Please pic a column for the X AXIS.""")
             return
@@ -347,9 +404,11 @@ def customize_plot():
             show_advanced_settings
             and y_axis in num_columns
             and plot_type
-            in [PLOT_SCATTER, PLOT_LINE, PLOT_DENSITY_HEATMAP, PLOT_DENSITY_CONTOUR]
+            not in [PLOT_PARALLEL_CATEGORIES, PLOT_PARALLEL_COORDINATES, PLOT_SCATTER_MATRIX]
         ):
             log_y = qs.checkbox(label="Log Y axis?")
+        else:
+            log_y = False
         if y_axis == PICK_ONE:
             st.warning("""Please pic a column for the X AXIS.""")
             return
@@ -359,9 +418,7 @@ def customize_plot():
         PLOT_DENSITY_HEATMAP,
     ]:
         color = qs.selectbox(
-            label="Use this column for color separation:",
-            options=[NONE_SELECTED] + cat_columns,
-            index=0,
+            label="Use this column for color:", options=[NONE_SELECTED] + cat_columns, index=0,
         )
 
     if (
@@ -371,6 +428,11 @@ def customize_plot():
     ):
         # Common data
         available_marginals = [NONE_SELECTED, "rug", "box", "violin", "histogram"]
+        # Dot text
+        if plot_type in PLOT_HAS_TEXT:
+            dot_text = qs.selectbox(
+                label="Text display column", options=[NONE_SELECTED] + cat_columns, index=0
+            )
         # Dot size
         if plot_type == PLOT_SCATTER:
             dot_size = qs.selectbox(
@@ -459,6 +521,7 @@ def customize_plot():
         # Density contour map
         fill_contours = qs.checkbox(label="Fill contours", value=False)
     else:
+        dot_text = NONE_SELECTED
         dot_size = NONE_SELECTED
         max_dot_size = 60
         facet_column = NONE_SELECTED
@@ -480,6 +543,7 @@ def customize_plot():
         fill_contours = False
         trend_line = NONE_SELECTED
         symbol = NONE_SELECTED
+        add_boxes = False
 
     size = qs.selectbox(
         label="Plot resolution",
@@ -522,27 +586,29 @@ def customize_plot():
     }
     if plot_type not in [PLOT_DENSITY_HEATMAP, PLOT_PARALLEL_CATEGORIES]:
         common_dict["color"] = filter_none(color)
+    if plot_type in PLOT_HAS_TEXT:
+        common_dict["text"] = filter_none(dot_text)
     if plot_mode == "Animation":
-        df = df.assign(time_step=(df[time_column] - df[time_column].min()).dt.days)
+        if (
+            time_column
+            in df.select_dtypes(
+                include=[np.datetime64, "datetime", "datetime64", "datetime64[ns, UTC]"]
+            ).columns.to_list()
+        ):
+            df = df.assign(time_step=(df[time_column] - df[time_column].min()).dt.days)
+            afc = "time_step"
+        else:
+            afc = time_column
         common_dict = {
             **common_dict,
-            "animation_frame": "time_step",
-            "range_x": [
-                None
-                if x_axis not in num_columns
-                else max(1, df[x_axis].min())
-                if log_x and (plot_type != PLOT_BAR)
-                else df[x_axis].min(),
-                df[x_axis].max(),
-            ],
-            "range_y": [
-                None
-                if y_axis not in num_columns
-                else max(1, df[y_axis].min())
-                if log_y and (plot_type != PLOT_BAR)
-                else df[y_axis].min(),
-                df[y_axis].max(),
-            ],
+            "animation_frame": afc,
+            "animation_group": anim_cat_group,
+            "range_x": None
+            if x_axis not in num_columns
+            else [df[x_axis].min(), df[x_axis].max()],
+            "range_y": None
+            if y_axis not in num_columns
+            else [df[y_axis].min(), df[y_axis].max()],
         }
     common_dict = {
         **common_dict,
@@ -551,6 +617,12 @@ def customize_plot():
         "facet_col": filter_none(facet_column),
         "facet_col_wrap": facet_colum_wrap,
     }
+    if plot_type not in [
+        PLOT_PARALLEL_CATEGORIES,
+        PLOT_PARALLEL_COORDINATES,
+        PLOT_SCATTER_MATRIX,
+    ]:
+        common_dict = {**common_dict, "log_x": log_x, "log_y": log_y}
     if plot_type in [
         PLOT_SCATTER,
         PLOT_DENSITY_HEATMAP,
@@ -605,13 +677,13 @@ def customize_plot():
             data_frame=df, width=width, height=height, template=template
         )
     elif plot_type == PLOT_SCATTER_MATRIX:
-        st.dataframe(df.head())
         fig = px.scatter_matrix(
             data_frame=df,
             width=width,
             height=height,
             template=template,
             color=filter_none(color),
+            opacity=0.5,
         )
 
     else:
