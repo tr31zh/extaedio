@@ -27,6 +27,7 @@ from amp_consts import (
     PLOT_PCA_3D,
     PLOT_PCA_2D,
     PLOT_SCATTER,
+    PLOT_SCATTER_3D,
     PLOT_LINE,
     PLOT_BAR,
     PLOT_HISTOGRAM,
@@ -135,8 +136,6 @@ def build_plot(plot_mode, plot_type, df, progress=None, **kwargs):
             kwargs[k] = filter_none(kwargs[k])
     num_columns = df.select_dtypes(include=[np.number]).columns.to_list()
 
-    kwargs["data_frame"] = df
-
     if plot_mode == "Animation":
         time_column = kwargs.pop("time_column", "")
         if (
@@ -145,7 +144,7 @@ def build_plot(plot_mode, plot_type, df, progress=None, **kwargs):
                 include=[np.datetime64, "datetime", "datetime64", "datetime64[ns, UTC]"]
             ).columns.to_list()
         ):
-            df = df.assign(time_step=(df[time_column] - df[time_column].min()).dt.days)
+            df["time_step"] = df[time_column].dt.strftime("%Y/%m/%d %H:%M:%S")
             afc = "time_step"
         else:
             afc = time_column
@@ -156,8 +155,12 @@ def build_plot(plot_mode, plot_type, df, progress=None, **kwargs):
             y = kwargs.get("y")
             kwargs["range_y"] = None if y not in num_columns else [df[y].min(), df[y].max()]
 
+    kwargs["data_frame"] = df
+
     if plot_type == PLOT_SCATTER:
         fig = px.scatter(**kwargs)
+    elif plot_type == PLOT_SCATTER_3D:
+        fig = px.scatter_3d(**kwargs)
     elif plot_type == PLOT_LINE:
         fig = px.line(**kwargs)
     elif plot_type == PLOT_BAR:
@@ -305,6 +308,8 @@ def build_plot(plot_mode, plot_type, df, progress=None, **kwargs):
             pc3_lbl = f"PC3 ({pca.explained_variance_ratio_[2] * 100:.2f}%)"
             df[pc3_lbl] = z_pca * (1.0 / (z_pca.max() - z_pca.min()))
             kwargs["z"] = pc3_lbl
+            if plot_mode == "Animation":
+                kwargs["range_z"] = [-1, 1]
             fig = px.scatter_3d(**kwargs)
         else:
             sl = kwargs.pop("show_loadings") is True
@@ -338,6 +343,9 @@ def build_plot(plot_mode, plot_type, df, progress=None, **kwargs):
         )
     else:
         fig = None
+
+    if fig is None:
+        print("No fig")
 
     if fig is not None:
         fig.update_layout(height=kwargs["height"], template=kwargs["template"])

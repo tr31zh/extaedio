@@ -20,6 +20,7 @@ from amp_consts import (
     NONE_SELECTED,
     AVAILABLE_URLS,
     PLOT_SCATTER,
+    PLOT_SCATTER_3D,
     PLOT_BAR,
     PLOT_HISTOGRAM,
     PLOT_VIOLIN,
@@ -35,6 +36,7 @@ from amp_consts import (
     PLOT_CORR_MATRIX,
     PLOT_HAS_X,
     PLOT_HAS_Y,
+    PLOT_HAS_Z,
     PLOT_HAS_COLOR,
     PLOT_HAS_TEXT,
     PLOT_HAS_BAR_MODE,
@@ -48,6 +50,7 @@ from amp_consts import (
     PLOT_HAS_SHAPE,
     PLOT_HAS_SIZE,
     PLOT_HAS_TREND_LINE,
+    PLOT_HAS_CUSTOM_HOVER_DATA,
 )
 from amp_functs import get_dataframe_from_url, format_csv_link, build_plot
 
@@ -74,6 +77,8 @@ def get_df_from_url(url):
 st.title("Ex Taedio")
 
 st.markdown("""Build plots the (kind of) easy way.""")
+
+st.header("Settings")
 
 st.subheader("Display options")
 use_side_bar = st.checkbox(
@@ -109,18 +114,25 @@ def customize_plot():
         return
     df = df_loaded.copy().reset_index(drop=True)
 
+    st.header("Sort columns")
+    sort_columns = st.multiselect(label="Sort by", options=df.columns.to_list())
+    invert_sort = st.checkbox(label="Reverse sort?", value=False)
+    if sort_columns:
+        df = df.sort_values(sort_columns, ascending=not invert_sort)
+
     if show_dw_options:
         # Filter
         st.header("Filtering")
 
         st.subheader("Selected data frame")
-        max_dot_size = st.number_input(
+        line_display_count = st.number_input(
             label="Lines to display", min_value=5, max_value=1000, value=5
         )
-        st.dataframe(df.head(max_dot_size))
+        st.dataframe(df.head(line_display_count))
 
         st.subheader("Dataframe description")
         st.dataframe(df.describe())
+        st.write(df.dtypes)
 
         st.subheader("Select columns to keep")
         kept_columns = st.multiselect(
@@ -157,7 +169,7 @@ def customize_plot():
         df = df.reset_index(drop=True)
 
         # Preview dataframe
-        st.subheader("filtered data frame")
+        st.subheader("filtered data frame numeric data description")
         st.dataframe(df.describe())
 
     qs = st.sidebar if use_side_bar else st
@@ -193,6 +205,11 @@ def customize_plot():
         plot_data_dict["time_column"] = qs.selectbox(
             label="Date/time column: ", options=time_columns, index=0,
         )
+        if plot_data_dict["time_column"] != PICK_ONE:
+            new_time_column = plot_data_dict["time_column"] + "_" + "pmgd"
+        else:
+            qs.warning("""Time column needed for animations.""")
+            return
         if plot_data_dict["time_column"] != PICK_ONE and (
             plot_data_dict["time_column"] in usual_time_columns
             or qs.checkbox(
@@ -201,11 +218,10 @@ def customize_plot():
             )
         ):
             try:
-                new_time_column = "date_pmgd_" + dt.now().strftime("%Y%m%d")
                 cf_columns = [c.casefold() for c in df.columns.to_list()]
                 if (
                     (plot_data_dict["time_column"].lower() in ["year", "month", "day"])
-                    and (len(set(("year", "month", "day")).intersection(set(cf_columns))) > 1)
+                    and (len(set(("year", "month", "day")).intersection(set(cf_columns))) > 0)
                     and qs.checkbox(label='Merge "year", "month", "day" columns?')
                 ):
                     src_columns = [c for c in df.columns.to_list()]
@@ -236,7 +252,6 @@ def customize_plot():
                     df[new_time_column] = pd.to_datetime(date_series)
                 else:
                     df[new_time_column] = pd.to_datetime(df[plot_data_dict["time_column"]])
-                plot_data_dict["time_column"] = new_time_column
             except Exception as e:
                 qs.error(
                     f"Unable to set {plot_data_dict['time_column']} as time reference column because {repr(e)}"
@@ -244,9 +259,10 @@ def customize_plot():
                 plot_data_dict["time_column"] = PICK_ONE
             else:
                 df = df.sort_values([plot_data_dict["time_column"]])
-        if plot_data_dict["time_column"] == PICK_ONE:
-            qs.warning("""Time column needed for animations.""")
-            return
+        else:
+            df[new_time_column] = df[plot_data_dict["time_column"]]
+        plot_data_dict["time_column"] = new_time_column
+        qs.info(f"Frames: {len(df[new_time_column].unique())}")
         plot_data_dict["animation_group"] = qs.selectbox(
             label="Animation category group", options=[NONE_SELECTED] + cat_columns, index=0
         )
@@ -254,6 +270,7 @@ def customize_plot():
     # Select type
     allowed_plots = [
         PLOT_SCATTER,
+        PLOT_SCATTER_3D,
         PLOT_BAR,
         PLOT_HISTOGRAM,
         PLOT_VIOLIN,
@@ -261,6 +278,7 @@ def customize_plot():
         PLOT_DENSITY_HEATMAP,
         PLOT_DENSITY_CONTOUR,
         PLOT_PCA_2D,
+        PLOT_PCA_3D,
     ]
     if plot_mode == "Static":
         allowed_plots.extend(
@@ -269,7 +287,6 @@ def customize_plot():
                 PLOT_PARALLEL_CATEGORIES,
                 PLOT_PARALLEL_COORDINATES,
                 PLOT_SCATTER_MATRIX,
-                PLOT_PCA_3D,
                 PLOT_CORR_MATRIX,
             ]
         )
@@ -280,6 +297,10 @@ def customize_plot():
         if plot_type in [PLOT_SCATTER, PLOT_LINE]:
             x_columns = [PICK_ONE] + all_columns
             y_columns = [PICK_ONE] + all_columns
+        elif plot_type in [PLOT_SCATTER_3D]:
+            x_columns = [PICK_ONE] + all_columns
+            y_columns = [PICK_ONE] + all_columns
+            z_columns = [PICK_ONE] + all_columns
         elif plot_type in [PLOT_BAR]:
             x_columns = [PICK_ONE] + cat_columns
             y_columns = [PICK_ONE] + all_columns
@@ -335,10 +356,20 @@ def customize_plot():
             st.warning("""Please pic a column for the X AXIS.""")
             return
 
+    if plot_type == PLOT_SCATTER_3D:
+        plot_data_dict["z"] = qs.selectbox(label="Z axis", options=z_columns, index=0,)
+        if show_advanced_settings and plot_data_dict["z"] in num_columns:
+            plot_data_dict["log_z"] = qs.checkbox(label="Log Z axis?")
+        else:
+            plot_data_dict["log_z"] = False
+        if plot_data_dict["z"] == PICK_ONE:
+            qs.warning("""Please pic a column for the Z AXIS.""")
+            return
+
     # Color column
     if plot_type in PLOT_HAS_COLOR:
         plot_data_dict["color"] = qs.selectbox(
-            label="Use this column for color:", options=[NONE_SELECTED] + cat_columns, index=0,
+            label="Use this column for color:", options=[NONE_SELECTED] + all_columns, index=0,
         )
 
     if show_advanced_settings:
@@ -394,7 +425,7 @@ def customize_plot():
                 index=0,
             )
         # Histogram specific parameters
-        if plot_type in PLOT_HAS_MARGINAL:
+        if plot_type in PLOT_HAS_MARGINAL and plot_mode != "Animation":
             plot_data_dict["marginal"] = qs.selectbox(
                 label="Marginal", options=available_marginals, index=0
             )
@@ -410,7 +441,7 @@ def customize_plot():
             plot_data_dict["barmode"] = qs.selectbox(
                 label="bar mode", options=["group", "overlay", "relative"], index=2
             )
-        if plot_type in PLOT_HAS_MARGINAL_XY:
+        if plot_type in PLOT_HAS_MARGINAL_XY and plot_mode != "Animation":
             plot_data_dict["marginal_x"] = qs.selectbox(
                 label="Marginals for X axis", options=available_marginals, index=0
             )
@@ -471,6 +502,15 @@ def customize_plot():
             )
             plot_data_dict["matrix_down"] = qs.selectbox(
                 label="Lower triangle", options=["Nothing", "Scatter", "2D histogram"], index=1,
+            )
+
+        # Hover data
+        if plot_type in PLOT_HAS_CUSTOM_HOVER_DATA:
+            plot_data_dict["hover_name"] = qs.selectbox(
+                label="Hover name:", options=[NONE_SELECTED] + cat_columns, index=0,
+            )
+            plot_data_dict["hover_data"] = qs.multiselect(
+                label="Add columns to hover data", options=df.columns.to_list(), default=[],
             )
 
     plot_data_dict["height"] = int(
@@ -549,6 +589,8 @@ def customize_plot():
                 yaxis_title="Explained variance in percent",
             )
             st.plotly_chart(figure_or_data=ev_fig, use_container_width=True)
+    else:
+        st.warning("No fig")
 
 
 customize_plot()
