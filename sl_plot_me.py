@@ -1,4 +1,5 @@
 import io
+import time
 
 import streamlit as st
 import pandas as pd
@@ -19,6 +20,7 @@ from amp_consts import (
     PICK_ONE,
     NONE_SELECTED,
     AVAILABLE_URLS,
+    AVAILABLE_PLOTS,
     PLOT_SCATTER,
     PLOT_SCATTER_3D,
     PLOT_BAR,
@@ -27,12 +29,14 @@ from amp_consts import (
     PLOT_BOX,
     PLOT_DENSITY_HEATMAP,
     PLOT_DENSITY_CONTOUR,
-    PLOT_PCA_2D,
     PLOT_LINE,
     PLOT_PARALLEL_CATEGORIES,
     PLOT_PARALLEL_COORDINATES,
     PLOT_SCATTER_MATRIX,
+    PLOT_PCA_2D,
     PLOT_PCA_3D,
+    PLOT_QDA_2D,
+    PLOT_LDA_2D,
     PLOT_CORR_MATRIX,
     PLOT_HAS_X,
     PLOT_HAS_Y,
@@ -51,6 +55,8 @@ from amp_consts import (
     PLOT_HAS_SIZE,
     PLOT_HAS_TREND_LINE,
     PLOT_HAS_CUSTOM_HOVER_DATA,
+    PLOT_HAS_TARGET,
+    PLOT_HAS_IGNORE_COLUMNS,
 )
 from amp_functs import get_dataframe_from_url, format_csv_link, build_plot
 
@@ -180,12 +186,62 @@ def customize_plot():
 
     num_columns = df.select_dtypes(include=[np.number]).columns.to_list()
     cat_columns = df.select_dtypes(include=["object", "datetime"]).columns.to_list()
+    supervision_columns = df.select_dtypes(include=["object", "number"]).columns.to_list()
     all_columns = df.columns.to_list()
     plot_data_dict = {}
 
+    # Select type
+    plot_type = qs.selectbox(label="Plot type: ", options=AVAILABLE_PLOTS, index=0,)
+    st.header(f"Plot - {plot_type}")
+    if plot_type == PLOT_SCATTER:
+        doc, _ = px.scatter.__doc__.split("\nParameters")
+        st.write(doc.strip())
+    elif plot_type == PLOT_SCATTER_3D:
+        doc, _ = px.scatter_3d.__doc__.split("\nParameters")
+        st.write(doc.strip())
+    elif plot_type == PLOT_LINE:
+        doc, _ = px.line.__doc__.split("\nParameters")
+        st.write(doc.strip())
+    elif plot_type == PLOT_BAR:
+        doc, _ = px.bar.__doc__.split("\nParameters")
+        st.write(doc.strip())
+    elif plot_type == PLOT_HISTOGRAM:
+        doc, _ = px.histogram.__doc__.split("\nParameters")
+        st.write(doc.strip())
+    elif plot_type == PLOT_BOX:
+        doc, _ = px.box.__doc__.split("\nParameters")
+        st.write(doc.strip())
+    elif plot_type == PLOT_VIOLIN:
+        doc, _ = px.violin.__doc__.split("\nParameters")
+        st.write(doc.strip())
+    elif plot_type == PLOT_DENSITY_HEATMAP:
+        doc, _ = px.density_heatmap.__doc__.split("\nParameters")
+        st.write(doc.strip())
+    elif plot_type == PLOT_DENSITY_CONTOUR:
+        doc, _ = px.density_contour.__doc__.split("\nParameters")
+        st.write(doc.strip())
+    elif plot_type == PLOT_PARALLEL_CATEGORIES:
+        doc, _ = px.parallel_categories.__doc__.split("\nParameters")
+        st.write(doc.strip())
+    elif plot_type == PLOT_PARALLEL_COORDINATES:
+        doc, _ = px.parallel_coordinates.__doc__.split("\nParameters")
+        st.write(doc.strip())
+    elif plot_type == PLOT_SCATTER_MATRIX:
+        st.write("Plot a scatter mattrix for all selected columns")
+    elif plot_type in [PLOT_PCA_2D]:
+        st.write("Plot 2D PCA")
+    elif plot_type in [PLOT_PCA_3D]:
+        st.write("Plot 3D PCA")
+    elif plot_type == PLOT_CORR_MATRIX:
+        st.write("Plot correlation matrix")
+    elif plot_type == PLOT_LDA_2D:
+        st.write(PLOT_LDA_2D)
+    elif plot_type == PLOT_QDA_2D:
+        st.write(PLOT_QDA_2D + "On 2D PCA")
+
     # Select mode
-    plot_mode = qs.selectbox(label="Plot mode: ", options=["Static", "Animation"], index=0,)
-    if plot_mode == "Animation":
+    is_anim = plot_type in PLOT_HAS_ANIM and qs.checkbox(label="Build animation", value=False)
+    if is_anim:
         usual_time_columns = [
             "date",
             "date_time",
@@ -267,31 +323,6 @@ def customize_plot():
             label="Animation category group", options=[NONE_SELECTED] + cat_columns, index=0
         )
 
-    # Select type
-    allowed_plots = [
-        PLOT_SCATTER,
-        PLOT_SCATTER_3D,
-        PLOT_BAR,
-        PLOT_HISTOGRAM,
-        PLOT_VIOLIN,
-        PLOT_BOX,
-        PLOT_DENSITY_HEATMAP,
-        PLOT_DENSITY_CONTOUR,
-        PLOT_PCA_2D,
-        PLOT_PCA_3D,
-    ]
-    if plot_mode == "Static":
-        allowed_plots.extend(
-            [
-                PLOT_LINE,
-                PLOT_PARALLEL_CATEGORIES,
-                PLOT_PARALLEL_COORDINATES,
-                PLOT_SCATTER_MATRIX,
-                PLOT_CORR_MATRIX,
-            ]
-        )
-    plot_type = qs.selectbox(label="Plot type: ", options=allowed_plots, index=0,)
-
     # Customize X axis
     if plot_type in PLOT_HAS_X:
         if plot_type in [PLOT_SCATTER, PLOT_LINE]:
@@ -353,7 +384,7 @@ def customize_plot():
         else:
             plot_data_dict["log_y"] = False
         if plot_data_dict["y"] == PICK_ONE:
-            st.warning("""Please pic a column for the X AXIS.""")
+            qs.warning("""Please pic a column for the Y AXIS.""")
             return
 
     if plot_type == PLOT_SCATTER_3D:
@@ -366,10 +397,25 @@ def customize_plot():
             qs.warning("""Please pic a column for the Z AXIS.""")
             return
 
+    # Target for supervised machine learning
+    if plot_type in PLOT_HAS_TARGET:
+        plot_data_dict["target"] = qs.selectbox(
+            label="Target:", options=[PICK_ONE] + supervision_columns, index=0,
+        )
+        if plot_data_dict["target"] == PICK_ONE:
+            qs.warning("""Please select target for supervised machine learning.""")
+            return
+        elif plot_data_dict["target"] in df.select_dtypes(include=[np.float]).columns.to_list():
+            qs.info("Non discrete columns will be rounded")
+
     # Color column
     if plot_type in PLOT_HAS_COLOR:
         plot_data_dict["color"] = qs.selectbox(
-            label="Use this column for color:", options=[NONE_SELECTED] + all_columns, index=0,
+            label="Use this column for color:",
+            options=[NONE_SELECTED] + all_columns,
+            index=0
+            if plot_type not in PLOT_HAS_TARGET
+            else all_columns.index(plot_data_dict["target"]) + 1,
         )
 
     if show_advanced_settings:
@@ -425,7 +471,7 @@ def customize_plot():
                 index=0,
             )
         # Histogram specific parameters
-        if plot_type in PLOT_HAS_MARGINAL and plot_mode != "Animation":
+        if plot_type in PLOT_HAS_MARGINAL and is_anim:
             plot_data_dict["marginal"] = qs.selectbox(
                 label="Marginal", options=available_marginals, index=0
             )
@@ -441,7 +487,7 @@ def customize_plot():
             plot_data_dict["barmode"] = qs.selectbox(
                 label="bar mode", options=["group", "overlay", "relative"], index=2
             )
-        if plot_type in PLOT_HAS_MARGINAL_XY and plot_mode != "Animation":
+        if plot_type in PLOT_HAS_MARGINAL_XY and is_anim:
             plot_data_dict["marginal_x"] = qs.selectbox(
                 label="Marginals for X axis", options=available_marginals, index=0
             )
@@ -481,6 +527,16 @@ def customize_plot():
         # PCA loadings
         if plot_type == PLOT_PCA_2D:
             plot_data_dict["show_loadings"] = qs.checkbox(label="Show loadings", value=False)
+        # Ignored columns
+        if plot_type in PLOT_HAS_IGNORE_COLUMNS:
+            plot_data_dict["ignore_columns"] = qs.multiselect(
+                label="Ignore columns:",
+                options=all_columns,
+                default=[plot_data_dict["target"]] if plot_type in PLOT_HAS_TARGET else [],
+            )
+            qs.info(
+                "Ignored columns will be omitted when calculating LDA, but available for display"
+            )
         # Correlation plot
         if plot_type == PLOT_CORR_MATRIX:
             plot_data_dict["corr_method"] = qs.selectbox(
@@ -512,6 +568,19 @@ def customize_plot():
             plot_data_dict["hover_data"] = qs.multiselect(
                 label="Add columns to hover data", options=df.columns.to_list(), default=[],
             )
+    else:
+        if plot_type == PLOT_SCATTER_MATRIX:
+            plot_data_dict["matrix_diag"] = "Histogram"
+            plot_data_dict["matrix_up"] = "Scatter"
+            plot_data_dict["matrix_down"] = "Scatter"
+        if plot_type == PLOT_PCA_2D:
+            plot_data_dict["show_loadings"] = False
+        if plot_type == PLOT_CORR_MATRIX:
+            plot_data_dict["corr_method"] = "pearson"
+        if plot_type in PLOT_HAS_TARGET:
+            plot_data_dict["ignore_columns"] = (
+                [plot_data_dict["target"]] if plot_type in PLOT_HAS_TARGET else []
+            )
 
     plot_data_dict["height"] = int(
         qs.selectbox(
@@ -540,27 +609,28 @@ def customize_plot():
         index=available_templates.index(pio.templates.default),
     )
 
-    st.header(f"Plot - {plot_type}")
-    if plot_mode == "Animation" and not st.button("Render"):
+    if is_anim and not st.button("Render"):
         st.info(
             """Since animations may tak long to initialize, 
             the rendering is started on when you click on the render button"""
         )
         return
 
+    progress = st.progress(0)
+
+    def update_progress(step, total):
+        progress.progress(min(100, int(step / total * 100)))
+        time.sleep(1)
+
     fig = build_plot(
-        plot_mode=plot_mode,
-        plot_type=plot_type,
-        df=df,
-        progress=st.progress(0) if plot_type == PLOT_SCATTER_MATRIX else None,
-        **plot_data_dict,
+        is_anim=is_anim, plot_type=plot_type, df=df, progress=update_progress, **plot_data_dict,
     )
 
     if fig is not None:
         st.plotly_chart(figure_or_data=fig, use_container_width=True)
         if (
             plot_type in [PLOT_PCA_2D, PLOT_PCA_3D]
-            and plot_mode != "Animation"
+            and not is_anim
             and st.checkbox(label="Show explained variance", value=False)
         ):
             X = df.loc[:, num_columns]

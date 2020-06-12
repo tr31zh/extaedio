@@ -8,6 +8,8 @@ from plotly.subplots import make_subplots
 import plotly.io as pio
 
 from sklearn.decomposition import PCA
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 from sklearn.preprocessing import StandardScaler
 
 from dw_cssegis_data import get_wrangled_cssegis_df
@@ -26,6 +28,8 @@ from amp_consts import (
     URL_ELECTION,
     PLOT_PCA_3D,
     PLOT_PCA_2D,
+    PLOT_LDA_2D,
+    PLOT_QDA_2D,
     PLOT_SCATTER,
     PLOT_SCATTER_3D,
     PLOT_LINE,
@@ -129,14 +133,14 @@ def get_dataframe_from_url(url):
         return None
 
 
-def build_plot(plot_mode, plot_type, df, progress=None, **kwargs):
+def build_plot(is_anim, plot_type, df, progress=None, **kwargs):
 
     for k, v in kwargs.items():
         if v == NONE_SELECTED:
             kwargs[k] = filter_none(kwargs[k])
     num_columns = df.select_dtypes(include=[np.number]).columns.to_list()
 
-    if plot_mode == "Animation":
+    if is_anim:
         time_column = kwargs.pop("time_column", "")
         if (
             time_column
@@ -149,7 +153,12 @@ def build_plot(plot_mode, plot_type, df, progress=None, **kwargs):
         else:
             afc = time_column
         kwargs["animation_frame"] = afc
-        if plot_type not in [PLOT_PCA_3D, PLOT_PCA_2D]:
+        if plot_type not in [
+            PLOT_PCA_3D,
+            PLOT_PCA_2D,
+            PLOT_LDA_2D,
+            PLOT_QDA_2D,
+        ]:
             x = kwargs.get("x")
             kwargs["range_x"] = None if x not in num_columns else [df[x].min(), df[x].max()]
             y = kwargs.get("y")
@@ -208,15 +217,12 @@ def build_plot(plot_mode, plot_type, df, progress=None, **kwargs):
         legend_added = False
         step = 0
         total = len(num_columns) ** 2
-        if progress is not None and hasattr(progress, "progress"):
-            progress.progress(step)
         matrix_diag = kwargs["matrix_diag"]
         matrix_up = kwargs["matrix_up"]
         matrix_down = kwargs["matrix_down"]
         for i, c in enumerate(num_columns):
             for j, l in enumerate(num_columns):
-                if progress is not None and hasattr(progress, "progress"):
-                    progress.progress(min(100, int(step / total * 100)))
+                progress(step, total)
                 step += 1
                 if i == j:
                     if matrix_diag == "Nothing":
@@ -286,35 +292,40 @@ def build_plot(plot_mode, plot_type, df, progress=None, **kwargs):
         fig.update_layout(barmode="stack")
     elif plot_type in [PLOT_PCA_2D, PLOT_PCA_3D]:
         X = df.loc[:, num_columns]
+        ignored_columns = kwargs.pop("ignore_columns", [])
+        if ignored_columns:
+            X = X.drop(
+                list(set(ignored_columns).intersection(set(X.columns.to_list()))), axis=1
+            )
         scaler = StandardScaler()
         scaler.fit(X)
         X = scaler.transform(X)
         pca = PCA()
         x_new = pca.fit_transform(X)
-        x_pca = x_new[:, 0]
-        y_pca = x_new[:, 1]
         pc1_lbl = f"PC1 ({pca.explained_variance_ratio_[0] * 100:.2f}%)"
         pc2_lbl = f"PC2 ({pca.explained_variance_ratio_[1] * 100:.2f}%)"
-        df[pc1_lbl] = x_pca * (1.0 / (x_pca.max() - x_pca.min()))
-        df[pc2_lbl] = y_pca * (1.0 / (y_pca.max() - y_pca.min()))
+        x = x_new[:, 0]
+        y = x_new[:, 1]
+        df[pc1_lbl] = x * (1.0 / (x.max() - x.min()))
+        df[pc2_lbl] = y * (1.0 / (y.max() - y.min()))
         kwargs["x"] = pc1_lbl
         kwargs["y"] = pc2_lbl
-        if plot_mode == "Animation":
+        if is_anim:
             kwargs["range_x"] = [-1, 1]
             kwargs["range_y"] = [-1, 1]
-        coeff = np.transpose(pca.components_[0:2, :])
-        if plot_type == PLOT_PCA_3D:
-            z_pca = x_new[:, 2]
+        if plot_type in [PLOT_PCA_3D]:
+            z = x_new[:, 2]
             pc3_lbl = f"PC3 ({pca.explained_variance_ratio_[2] * 100:.2f}%)"
-            df[pc3_lbl] = z_pca * (1.0 / (z_pca.max() - z_pca.min()))
+            df[pc3_lbl] = z * (1.0 / (z.max() - z.min()))
             kwargs["z"] = pc3_lbl
-            if plot_mode == "Animation":
+            if is_anim:
                 kwargs["range_z"] = [-1, 1]
             fig = px.scatter_3d(**kwargs)
         else:
             sl = kwargs.pop("show_loadings") is True
             fig = px.scatter(**kwargs)
             if sl:
+                coeff = np.transpose(pca.components_[0:2, :])
                 for i in range(coeff.shape[0]):
                     fig.add_shape(
                         type="line",
@@ -335,6 +346,40 @@ def build_plot(plot_mode, plot_type, df, progress=None, **kwargs):
                         name="Loadings",
                     ),
                 )
+    elif plot_type in [PLOT_LDA_2D, PLOT_QDA_2D]:
+        X = df.loc[:, num_columns]
+        ignored_columns = kwargs.pop("ignore_columns", [])
+        if ignored_columns:
+            X = X.drop(
+                list(set(ignored_columns).intersection(set(X.columns.to_list()))), axis=1
+            )
+        if kwargs["target"] in df.select_dtypes(include=["object"]).columns.to_list():
+            t = df[kwargs["target"]].astype("category").cat.codes
+        elif kwargs["target"] in df.select_dtypes(include=[np.float]).columns.to_list():
+            t = df[kwargs["target"]].astype("int")
+        else:
+            t = df[kwargs["target"]]
+        scaler = StandardScaler()
+        scaler.fit(X)
+        X = scaler.transform(X)
+        if plot_type == PLOT_LDA_2D:
+            xda = LinearDiscriminantAnalysis()
+        elif plot_type == PLOT_QDA_2D:
+            xda = QuadraticDiscriminantAnalysis(store_covariance=True)
+        x_new = xda.fit(X, y=t).transform(X)
+        pc1_lbl = f"PC1 ({xda.explained_variance_ratio_[0] * 100:.2f}%)"
+        pc2_lbl = f"PC2 ({xda.explained_variance_ratio_[1] * 100:.2f}%)"
+        x = x_new[:, 0]
+        y = x_new[:, 1]
+        df[pc1_lbl] = x * (1.0 / (x.max() - x.min()))
+        df[pc2_lbl] = y * (1.0 / (y.max() - y.min()))
+        kwargs["x"] = pc1_lbl
+        kwargs["y"] = pc2_lbl
+        if is_anim:
+            kwargs["range_x"] = [-1, 1]
+            kwargs["range_y"] = [-1, 1]
+        kwargs.pop("target")
+        fig = px.scatter(**kwargs)
     elif plot_type == PLOT_CORR_MATRIX:
         fig = px.imshow(
             df[num_columns].corr(method=kwargs.get("corr_method")).values,
