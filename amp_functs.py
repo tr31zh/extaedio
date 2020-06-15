@@ -200,7 +200,8 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs):
             shared_xaxes=True,
             row_titles=num_columns,
         )
-        if (color_column := kwargs.get("color")) is not None:
+        color_column = kwargs.get("color")
+        if color_column is not None:
             template_colors = pio.templates[kwargs.get("template")].layout["colorway"]
             if template_colors is None:
                 template_colors = pio.templates[pio.templates.default].layout["colorway"]

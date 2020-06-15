@@ -57,6 +57,7 @@ from amp_consts import (
     PLOT_HAS_CUSTOM_HOVER_DATA,
     PLOT_HAS_TARGET,
     PLOT_HAS_IGNORE_COLUMNS,
+    PLOT_HAS_PROGRESS_DISPLAY,
 )
 from amp_functs import get_dataframe_from_url, format_csv_link, build_plot
 
@@ -616,11 +617,15 @@ def customize_plot():
         )
         return
 
-    progress = st.progress(0)
+    if plot_type in PLOT_HAS_PROGRESS_DISPLAY:
+        progress = st.progress(0)
 
-    def update_progress(step, total):
-        progress.progress(min(100, int(step / total * 100)))
-        time.sleep(1)
+        def update_progress(step, total):
+            progress.progress(min(100, int(step / total * 100)))
+            time.sleep(1)
+
+    else:
+        update_progress = None
 
     fig = build_plot(
         is_anim=is_anim, plot_type=plot_type, df=df, progress=update_progress, **plot_data_dict,
