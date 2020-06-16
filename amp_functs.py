@@ -10,6 +10,7 @@ import plotly.io as pio
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+from sklearn.neighbors import NeighborhoodComponentsAnalysis
 from sklearn.preprocessing import StandardScaler
 
 from dw_cssegis_data import get_wrangled_cssegis_df
@@ -29,6 +30,7 @@ from amp_consts import (
     PLOT_PCA_3D,
     PLOT_PCA_2D,
     PLOT_LDA_2D,
+    PLOT_NCA,
     PLOT_QDA_2D,
     PLOT_SCATTER,
     PLOT_SCATTER_3D,
@@ -133,7 +135,7 @@ def get_dataframe_from_url(url):
         return None
 
 
-def build_plot(is_anim, plot_type, df, progress=None, **kwargs):
+def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
 
     for k, v in kwargs.items():
         if v == NONE_SELECTED:
@@ -158,13 +160,22 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs):
             PLOT_PCA_2D,
             PLOT_LDA_2D,
             PLOT_QDA_2D,
+            PLOT_NCA,
         ]:
             x = kwargs.get("x")
             kwargs["range_x"] = None if x not in num_columns else [df[x].min(), df[x].max()]
             y = kwargs.get("y")
             kwargs["range_y"] = None if y not in num_columns else [df[y].min(), df[y].max()]
+            if plot_type == PLOT_SCATTER_3D:
+                z = kwargs.get("z")
+                kwargs["range_z"] = None if z not in num_columns else [df[z].min(), df[z].max()]
 
     kwargs["data_frame"] = df
+
+    fig = None
+    model_data = None
+    column_names = None
+    class_names = None
 
     if plot_type == PLOT_SCATTER:
         fig = px.scatter(**kwargs)
@@ -298,13 +309,14 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs):
             X = X.drop(
                 list(set(ignored_columns).intersection(set(X.columns.to_list()))), axis=1
             )
+        column_names = X.columns.to_list()
         scaler = StandardScaler()
         scaler.fit(X)
         X = scaler.transform(X)
-        pca = PCA()
-        x_new = pca.fit_transform(X)
-        pc1_lbl = f"PC1 ({pca.explained_variance_ratio_[0] * 100:.2f}%)"
-        pc2_lbl = f"PC2 ({pca.explained_variance_ratio_[1] * 100:.2f}%)"
+        model_data = PCA()
+        x_new = model_data.fit_transform(X)
+        pc1_lbl = f"PC1 ({model_data.explained_variance_ratio_[0] * 100:.2f}%)"
+        pc2_lbl = f"PC2 ({model_data.explained_variance_ratio_[1] * 100:.2f}%)"
         x = x_new[:, 0]
         y = x_new[:, 1]
         df[pc1_lbl] = x * (1.0 / (x.max() - x.min()))
@@ -316,7 +328,7 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs):
             kwargs["range_y"] = [-1, 1]
         if plot_type in [PLOT_PCA_3D]:
             z = x_new[:, 2]
-            pc3_lbl = f"PC3 ({pca.explained_variance_ratio_[2] * 100:.2f}%)"
+            pc3_lbl = f"PC3 ({model_data.explained_variance_ratio_[2] * 100:.2f}%)"
             df[pc3_lbl] = z * (1.0 / (z.max() - z.min()))
             kwargs["z"] = pc3_lbl
             if is_anim:
@@ -326,7 +338,7 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs):
             sl = kwargs.pop("show_loadings") is True
             fig = px.scatter(**kwargs)
             if sl:
-                coeff = np.transpose(pca.components_[0:2, :])
+                coeff = np.transpose(model_data.components_[0:2, :])
                 for i in range(coeff.shape[0]):
                     fig.add_shape(
                         type="line",
@@ -354,28 +366,62 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs):
             X = X.drop(
                 list(set(ignored_columns).intersection(set(X.columns.to_list()))), axis=1
             )
+        column_names = X.columns.to_list()
         if kwargs["target"] in df.select_dtypes(include=["object"]).columns.to_list():
             t = df[kwargs["target"]].astype("category").cat.codes
         elif kwargs["target"] in df.select_dtypes(include=[np.float]).columns.to_list():
             t = df[kwargs["target"]].astype("int")
         else:
             t = df[kwargs["target"]]
+        class_names = df[kwargs["target"]].unique()
         scaler = StandardScaler()
         scaler.fit(X)
         X = scaler.transform(X)
         if plot_type == PLOT_LDA_2D:
-            xda = LinearDiscriminantAnalysis()
+            model_data = LinearDiscriminantAnalysis(solver=kwargs.pop("solver", "svd"))
         elif plot_type == PLOT_QDA_2D:
-            xda = QuadraticDiscriminantAnalysis(store_covariance=True)
-        x_new = xda.fit(X, y=t).transform(X)
-        pc1_lbl = f"PC1 ({xda.explained_variance_ratio_[0] * 100:.2f}%)"
-        pc2_lbl = f"PC2 ({xda.explained_variance_ratio_[1] * 100:.2f}%)"
+            model_data = QuadraticDiscriminantAnalysis(store_covariance=True)
+        x_new = model_data.fit(X, y=t).transform(X)
+        pc1_lbl = f"PC1 ({model_data.explained_variance_ratio_[0] * 100:.2f}%)"
+        pc2_lbl = f"PC2 ({model_data.explained_variance_ratio_[1] * 100:.2f}%)"
         x = x_new[:, 0]
         y = x_new[:, 1]
         df[pc1_lbl] = x * (1.0 / (x.max() - x.min()))
         df[pc2_lbl] = y * (1.0 / (y.max() - y.min()))
         kwargs["x"] = pc1_lbl
         kwargs["y"] = pc2_lbl
+        if is_anim:
+            kwargs["range_x"] = [-1, 1]
+            kwargs["range_y"] = [-1, 1]
+        kwargs.pop("target")
+        fig = px.scatter(**kwargs)
+    elif plot_type in [PLOT_NCA]:
+        X = df.loc[:, num_columns]
+        ignored_columns = kwargs.pop("ignore_columns", [])
+        if ignored_columns:
+            X = X.drop(
+                list(set(ignored_columns).intersection(set(X.columns.to_list()))), axis=1
+            )
+        column_names = X.columns.to_list()
+        if kwargs["target"] in df.select_dtypes(include=["object"]).columns.to_list():
+            t = df[kwargs["target"]].astype("category").cat.codes
+        elif kwargs["target"] in df.select_dtypes(include=[np.float]).columns.to_list():
+            t = df[kwargs["target"]].astype("int")
+        else:
+            t = df[kwargs["target"]]
+        class_names = df[kwargs["target"]].unique()
+        scaler = StandardScaler()
+        scaler.fit(X)
+        X = scaler.transform(X)
+        model_data = NeighborhoodComponentsAnalysis(
+            init=kwargs.pop("init", "auto"),
+            n_components=min(len(column_names), kwargs.pop("n_components", 2)),
+        )
+        x_new = model_data.fit(X, y=t).transform(X)
+        df["x_nca"] = x_new[:, 0]
+        df["y_nca"] = x_new[:, 1]
+        kwargs["x"] = "x_nca"
+        kwargs["y"] = "y_nca"
         if is_anim:
             kwargs["range_x"] = [-1, 1]
             kwargs["range_y"] = [-1, 1]
@@ -396,4 +442,11 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs):
     if fig is not None:
         fig.update_layout(height=kwargs["height"], template=kwargs["template"])
 
-    return fig
+    return {
+        k: v
+        for k, v in zip(
+            ["figure", "model_data", "column_names", "class_names"],
+            [fig, model_data, column_names, class_names],
+        )
+        if v is not None
+    }

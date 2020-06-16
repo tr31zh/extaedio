@@ -21,6 +21,8 @@ from amp_consts import (
     NONE_SELECTED,
     AVAILABLE_URLS,
     AVAILABLE_PLOTS,
+    URL_LOCAL_FILE,
+    URL_DISTANT_FILE,
     PLOT_SCATTER,
     PLOT_SCATTER_3D,
     PLOT_BAR,
@@ -37,6 +39,7 @@ from amp_consts import (
     PLOT_PCA_3D,
     PLOT_QDA_2D,
     PLOT_LDA_2D,
+    PLOT_NCA,
     PLOT_CORR_MATRIX,
     PLOT_HAS_X,
     PLOT_HAS_Y,
@@ -58,6 +61,9 @@ from amp_consts import (
     PLOT_HAS_TARGET,
     PLOT_HAS_IGNORE_COLUMNS,
     PLOT_HAS_PROGRESS_DISPLAY,
+    PLOT_HAS_SOLVER,
+    PLOT_HAS_NCOMP,
+    PLOT_HAS_INIT,
 )
 from amp_functs import get_dataframe_from_url, format_csv_link, build_plot
 
@@ -83,76 +89,135 @@ def get_df_from_url(url):
 
 st.title("Ex Taedio")
 
-st.markdown("""Build plots the (kind of) easy way.""")
+st.markdown("""Welcome to Ex Taedio, a dashboard to help you generate plots from CSV files.""")
 
-st.header("Settings")
+st.header("Display options")
+show_info = st.checkbox(label="Show information panels", value=True)
 
-st.subheader("Display options")
-use_side_bar = st.checkbox(
-    label="Put the questions to customize the plot in th sidebar? Recommended.", value=True
-)
-if st.checkbox(
-    label="Force wide display? - can also be set from the settings. This overrides the settings if checked.",
-    value=True,
-):
+if show_info:
+    st.info(
+        """
+    - **Plot settings to side bar**:Put the plot setttings in the sidebar instead 
+    of with all the other settings (Recommended).  
+    - **Force wide display**: Set the main UI to occupy all the available space,
+    can also be set from the settings. This overrides the settings if checked.
+    """
+    )
+use_side_bar = st.checkbox(label="Plot settings to side bar", value=True)
+if st.checkbox(label="Force wide display", value=True,):
     _max_width_()
-
-st.subheader("Advanced settings, the more you check the weirder it gets.")
-show_dw_options = st.checkbox(
-    label="Show dataframe customization options - Remove columns or rows."
-)
-show_advanced_settings = st.checkbox(
-    label="Show plot customization advanced options", value=False
-)
 
 
 def customize_plot():
 
     st.header("Load dataframe, usually a CSV file")
+    if show_info:
+        st.info(
+            f"""
+            Select **{URL_LOCAL_FILE}** to load a file from your file system.  
+            Select **{URL_DISTANT_FILE}** to paste an URL of a distant CSV.  
+            The other options are CSVs that can be used to learn how to use the dashboard.
+            """
+        )
     selected_file = st.selectbox(
         label="Source file: ", options=AVAILABLE_URLS, index=0, format_func=format_csv_link,
     )
-    if selected_file == "Load local file":
+    if selected_file == URL_LOCAL_FILE:
         selected_file = st.file_uploader(label="Select file to upload")
         if selected_file is None:
+            return
+    elif selected_file == URL_DISTANT_FILE:
+        selected_file = st.text_input(label="Paste web URL", value="")
+        if not (st.button(label="Download file", key="grab_file") and selected_file):
             return
     df_loaded = get_df_from_url(url=selected_file)
     if df_loaded is None:
         return
     df = df_loaded.copy().reset_index(drop=True)
 
-    st.header("Sort columns")
-    sort_columns = st.multiselect(label="Sort by", options=df.columns.to_list())
-    invert_sort = st.checkbox(label="Reverse sort?", value=False)
-    if sort_columns:
-        df = df.sort_values(sort_columns, ascending=not invert_sort)
+    st.header("Advanced settings")
+    if show_info:
+        st.info(
+            """
+        If activated, this settings can quickly become overwhelming.  
+        - **Show dataframe customization options**: Add widgets to sort, filter and clean the dataframe.  
+        - **Show plot customization advanced options**: Add widgets to further customize the plots.  
+        - **Defer rendering**: Only generate plot when user presses the render button.
+        Usefull if the rendering takes too long when changing a parameter.
+        """
+        )
+
+    show_dw_options = st.checkbox(label="Show dataframe customization options.")
+    show_advanced_settings = st.checkbox(label="Show plot advanced options", value=False)
+    defer_render = st.checkbox(label="Defer rendering", value=False)
 
     if show_dw_options:
+        # Sorting
+        st.header("Sort columns")
+        if show_info:
+            st.info(
+                """
+            Select columns to sort the dataframe, if multiple columns are selected,
+            sort will be applied in the displayed order.
+            """
+            )
+        sort_columns = st.multiselect(label="Sort by", options=df.columns.to_list())
+        invert_sort = st.checkbox(label="Reverse sort?", value=False)
+        if sort_columns:
+            df = df.sort_values(sort_columns, ascending=not invert_sort)
         # Filter
         st.header("Filtering")
+        if show_info:
+            st.info("Some options to modify the dataframe")
 
         st.subheader("Selected data frame")
+        if show_info:
+            st.info("Displays n lines of the original dataframe")
         line_display_count = st.number_input(
             label="Lines to display", min_value=5, max_value=1000, value=5
         )
         st.dataframe(df.head(line_display_count))
 
         st.subheader("Dataframe description")
+        if show_info:
+            st.info(
+                """
+                Display info about the dataframe's numerical 
+                columns and types associated to all columns
+                """
+            )
         st.dataframe(df.describe())
         st.write(df.dtypes)
 
         st.subheader("Select columns to keep")
+        if show_info:
+            st.info(
+                """
+                Remove all columns that will not be needed, 
+                the lower the number of columns the faster the dashboard will run
+                """
+            )
         kept_columns = st.multiselect(
             label="Columns to keep", options=df.columns.to_list(), default=df.columns.to_list(),
         )
         df = df[kept_columns]
 
         st.subheader("Filter rows")
+        if show_info:
+            st.info(
+                """Select which columns will be filtered by values.  
+                Only date and string columns can be filtered at the moment"""
+            )
         filter_columns = st.multiselect(
             label="Select which columns you want to use to filter the rows:",
             options=df.select_dtypes(include=["object", "datetime"]).columns.to_list(),
             default=None,
         )
+        if filter_columns and show_info:
+            st.info(
+                """For each selected column select all the values that will be included.
+                Less rows means faster dashboard"""
+            )
         filters = {}
         for column in filter_columns:
             st.subheader(f"{column}: ")
@@ -170,6 +235,8 @@ def customize_plot():
         st.subheader("Clean up")
         if st.checkbox(label="Remove duplicates", value=False):
             df = df.drop_duplicates()
+        if show_info:
+            st.info("Some plots like PCA won't work if NA values are present in the dataframe")
         if st.checkbox(label="Remove rows with NA values", value=False):
             df = df.dropna(axis="index")
 
@@ -177,6 +244,8 @@ def customize_plot():
 
         # Preview dataframe
         st.subheader("filtered data frame numeric data description")
+        if show_info:
+            st.info("Display info about the filtered dataframe's numerical ")
         st.dataframe(df.describe())
 
     qs = st.sidebar if use_side_bar else st
@@ -191,9 +260,11 @@ def customize_plot():
     all_columns = df.columns.to_list()
     plot_data_dict = {}
 
+    qs.subheader("Plot selection")
+
     # Select type
     plot_type = qs.selectbox(label="Plot type: ", options=AVAILABLE_PLOTS, index=0,)
-    st.header(f"Plot - {plot_type}")
+    st.header(f"Plot: {plot_type}")
     if plot_type == PLOT_SCATTER:
         doc, _ = px.scatter.__doc__.split("\nParameters")
         st.write(doc.strip())
@@ -239,6 +310,10 @@ def customize_plot():
         st.write(PLOT_LDA_2D)
     elif plot_type == PLOT_QDA_2D:
         st.write(PLOT_QDA_2D + "On 2D PCA")
+    elif plot_type == PLOT_NCA:
+        st.write(PLOT_NCA)
+    if plot_type in [PLOT_LDA_2D, PLOT_NCA]:
+        qs.warning("If plotting fails, make sure that no variable is colinear with your target")
 
     # Select mode
     is_anim = plot_type in PLOT_HAS_ANIM and qs.checkbox(label="Build animation", value=False)
@@ -323,6 +398,16 @@ def customize_plot():
         plot_data_dict["animation_group"] = qs.selectbox(
             label="Animation category group", options=[NONE_SELECTED] + cat_columns, index=0
         )
+        if show_info:
+            qs.info(
+                """
+                Select the main column of your dataframe as the category group.  
+                For example if using *gapminder* select country.  
+                If no column is selected the animation may jitter.
+                """
+            )
+
+    qs.subheader("Basic options")
 
     # Customize X axis
     if plot_type in PLOT_HAS_X:
@@ -406,7 +491,10 @@ def customize_plot():
         if plot_data_dict["target"] == PICK_ONE:
             qs.warning("""Please select target for supervised machine learning.""")
             return
-        elif plot_data_dict["target"] in df.select_dtypes(include=[np.float]).columns.to_list():
+        elif (
+            plot_data_dict["target"] in df.select_dtypes(include=[np.float]).columns.to_list()
+            and show_info
+        ):
             qs.info("Non discrete columns will be rounded")
 
     # Color column
@@ -419,9 +507,88 @@ def customize_plot():
             else all_columns.index(plot_data_dict["target"]) + 1,
         )
 
+    # Ignored columns
+    if plot_type in PLOT_HAS_IGNORE_COLUMNS:
+        plot_data_dict["ignore_columns"] = qs.multiselect(
+            label="Ignore columns:",
+            options=all_columns,
+            default=[plot_data_dict["target"]] if plot_type in PLOT_HAS_TARGET else [],
+        )
+        if show_info:
+            qs.info(
+                """
+                **Ignored columns** will be omitted when calculating LDA, 
+                but available for display.  
+                Use this to avoid giving the answer to the question when building models.
+                """
+            )
+
     if show_advanced_settings:
+        qs.subheader("Advanced options:")
         # Common data
         available_marginals = [NONE_SELECTED, "rug", "box", "violin", "histogram"]
+        # Solver selection
+        if plot_type in PLOT_HAS_SOLVER:
+            solvers = ["svd", "eigen"]
+            plot_data_dict["solver"] = qs.selectbox(
+                label="Solver",
+                options=solvers,
+                index=0,
+                format_func=lambda x: {
+                    "svd": "Singular value decomposition",
+                    "eigen": "Eigenvalue decomposition",
+                }.get(x, "svd"),
+            )
+        # About NCA
+        if plot_type in PLOT_HAS_NCOMP:
+            plot_data_dict["n_components"] = qs.number_input(
+                label="Number of components", min_value=2, max_value=len(num_columns), value=2
+            )
+        if plot_type in PLOT_HAS_INIT:
+            plot_data_dict["init"] = qs.selectbox(
+                label="Linear transformation init",
+                options=["auto", "pca", "lda", "identity", "random"],
+                index=0,
+            )
+            if plot_data_dict["init"] == "auto":
+                qs.info(
+                    """
+                    Depending on n_components, the most reasonable initialization will be 
+                    chosen. If n_components <= n_classes we use ‘lda’, as it uses labels 
+                    information. If not, but n_components < min(n_features, n_samples), 
+                    we use ‘pca’, as it projects data in meaningful directions 
+                    (those of higher variance). Otherwise, we just use ‘identity’.
+                    """
+                )
+            elif plot_data_dict["init"] == "pca":
+                qs.info(
+                    """n_components principal components of the inputs passed to 
+                    fit will be used to initialize the transformation."""
+                )
+            elif plot_data_dict["init"] == "lda":
+                qs.info(
+                    """
+                    min(n_components, n_classes) most discriminative components of
+                    the inputs passed to fit will be used to initialize the transformation. 
+                    (If n_components > n_classes, the rest of the components will be zero.)
+                    """
+                )
+            elif plot_data_dict["init"] == "identity":
+                qs.info(
+                    """
+                    If n_components is strictly smaller than the dimensionality 
+                    of the inputs passed to 
+                    fit, the identity matrix will be truncated to the first n_components rows.
+                    """
+                )
+            elif plot_data_dict["init"] == "random":
+                qs.info(
+                    """
+                    The initial transformation will be a random array of shape 
+                    (n_components, n_features). 
+                    Each value is sampled from the standard normal distribution.
+                    """
+                )
         # Dot text
         if plot_type in PLOT_HAS_TEXT:
             plot_data_dict["text"] = qs.selectbox(
@@ -528,16 +695,6 @@ def customize_plot():
         # PCA loadings
         if plot_type == PLOT_PCA_2D:
             plot_data_dict["show_loadings"] = qs.checkbox(label="Show loadings", value=False)
-        # Ignored columns
-        if plot_type in PLOT_HAS_IGNORE_COLUMNS:
-            plot_data_dict["ignore_columns"] = qs.multiselect(
-                label="Ignore columns:",
-                options=all_columns,
-                default=[plot_data_dict["target"]] if plot_type in PLOT_HAS_TARGET else [],
-            )
-            qs.info(
-                "Ignored columns will be omitted when calculating LDA, but available for display"
-            )
         # Correlation plot
         if plot_type == PLOT_CORR_MATRIX:
             plot_data_dict["corr_method"] = qs.selectbox(
@@ -578,14 +735,11 @@ def customize_plot():
             plot_data_dict["show_loadings"] = False
         if plot_type == PLOT_CORR_MATRIX:
             plot_data_dict["corr_method"] = "pearson"
-        if plot_type in PLOT_HAS_TARGET:
-            plot_data_dict["ignore_columns"] = (
-                [plot_data_dict["target"]] if plot_type in PLOT_HAS_TARGET else []
-            )
 
+    qs.subheader("Sizing and theming")
     plot_data_dict["height"] = int(
         qs.selectbox(
-            label="Plot resolution",
+            label="Plot height in pixels",
             options=[
                 "400",
                 "600",
@@ -610,11 +764,12 @@ def customize_plot():
         index=available_templates.index(pio.templates.default),
     )
 
-    if is_anim and not st.button("Render"):
-        st.info(
-            """Since animations may tak long to initialize, 
-            the rendering is started on when you click on the render button"""
-        )
+    if (is_anim or defer_render) and not st.button(label="Render", key="render_plot"):
+        if is_anim and show_info:
+            st.info(
+                """Since animations may tak long to initialize, 
+                the rendering starts only when you click on the render button"""
+            )
         return
 
     if plot_type in PLOT_HAS_PROGRESS_DISPLAY:
@@ -627,45 +782,85 @@ def customize_plot():
     else:
         update_progress = None
 
-    fig = build_plot(
+    fig_data = build_plot(
         is_anim=is_anim, plot_type=plot_type, df=df, progress=update_progress, **plot_data_dict,
     )
 
-    if fig is not None:
-        st.plotly_chart(figure_or_data=fig, use_container_width=True)
-        if (
-            plot_type in [PLOT_PCA_2D, PLOT_PCA_3D]
-            and not is_anim
-            and st.checkbox(label="Show explained variance", value=False)
-        ):
-            X = df.loc[:, num_columns]
-            scaler = StandardScaler()
-            scaler.fit(X)
-            X = scaler.transform(X)
-            pca = PCA()
-            x_new = pca.fit_transform(X)
-            df_ev = pd.DataFrame.from_dict(
-                {
-                    "pc": [f"PC{i}" for i in range(len(pca.explained_variance_ratio_))],
-                    "exp_var_per": pca.explained_variance_ratio_ * 100,
-                }
+    if fig_data:
+        if "figure" in fig_data:
+            st.plotly_chart(
+                figure_or_data=fig_data.get("figure", None), use_container_width=True
             )
-            df_ev = df_ev.assign(cumulative=df_ev["exp_var_per"].cumsum())
-            ev_fig = go.Figure()
-            ev_fig.add_trace(go.Bar(x=df_ev["pc"], y=df_ev["exp_var_per"], name="individual",))
-            ev_fig.add_trace(
-                go.Scatter(x=df_ev["pc"], y=df_ev["cumulative"], name="cumulative",)
-            )
-            ev_fig.update_layout(
-                height=plot_data_dict["height"],
-                template=plot_data_dict["template"],
-                title="Explained variance by different principal components",
-                xaxis_title="Principal component",
-                yaxis_title="Explained variance in percent",
-            )
-            st.plotly_chart(figure_or_data=ev_fig, use_container_width=True)
+
+        if "model_data" in fig_data:
+            model_data = fig_data.get("model_data", None)
+            if hasattr(model_data, "explained_variance_ratio_") and st.checkbox(
+                label="Show explained variance", value=False
+            ):
+                df_ev = pd.DataFrame.from_dict(
+                    {
+                        "pc": [
+                            f"PC{i}" for i in range(len(model_data.explained_variance_ratio_))
+                        ],
+                        "exp_var_per": model_data.explained_variance_ratio_ * 100,
+                    }
+                )
+                df_ev = df_ev.assign(cumulative=df_ev["exp_var_per"].cumsum())
+                ev_fig = go.Figure()
+                ev_fig.add_trace(
+                    go.Bar(x=df_ev["pc"], y=df_ev["exp_var_per"], name="individual",)
+                )
+                ev_fig.add_trace(
+                    go.Scatter(x=df_ev["pc"], y=df_ev["cumulative"], name="cumulative",)
+                )
+                ev_fig.update_layout(
+                    height=plot_data_dict["height"],
+                    template=plot_data_dict["template"],
+                    title="Explained variance by different principal components",
+                    xaxis_title="Principal component",
+                    yaxis_title="Explained variance in percent",
+                )
+                st.plotly_chart(figure_or_data=ev_fig, use_container_width=True)
+            if (
+                hasattr(model_data, "components_")
+                and "column_names" in fig_data
+                and st.checkbox(
+                    label=(
+                        lambda x: {
+                            PLOT_PCA_2D: "Components details",
+                            PLOT_PCA_3D: "Components details",
+                            PLOT_NCA: "Linear transformation learned",
+                        }.get(x, "Error")
+                    )(plot_type),
+                    value=False,
+                )
+            ):
+                st.write(
+                    pd.DataFrame.from_dict(
+                        {
+                            f"PC{i+1}": pc_data
+                            for i, pc_data in enumerate(model_data.components_)
+                        }
+                    ).set_index(pd.Series(fig_data["column_names"]))
+                )
+            if (
+                hasattr(model_data, "means_")
+                and "class_names" in fig_data
+                and "column_names" in fig_data
+                and st.checkbox(label="Class means", value=False)
+            ):
+                st.write(
+                    pd.DataFrame.from_dict(
+                        {
+                            col: pc_data
+                            for col, pc_data in zip(
+                                fig_data["column_names"], model_data.means_.T
+                            )
+                        }
+                    ).set_index(pd.Series(fig_data["class_names"]))
+                )
     else:
-        st.warning("No fig")
+        st.warning("No plot")
 
 
 customize_plot()

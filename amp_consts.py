@@ -10,17 +10,20 @@ URL_GAPMINDER = "url_gapminder"
 URL_WIND = "url_wind"
 URL_ELECTION = "url_election"
 URL_CARSHARE = "url_carshare"
+URL_LOCAL_FILE = "Browse computer"
+URL_DISTANT_FILE = "Distant URL"
 
 AVAILABLE_URLS = [
     PICK_ONE,
-    "Load local file",
-    URL_CARSHARE,
-    URL_ELECTION,
+    URL_LOCAL_FILE,
+    URL_DISTANT_FILE,
+    URL_CSSE,
     URL_GAPMINDER,
     URL_IRIS,
+    URL_CARSHARE,
+    URL_ELECTION,
     URL_TIPS,
     URL_WIND,
-    URL_CSSE,
     URL_COVID_DATA,
     URL_ECDC_COVID,
 ]
@@ -42,6 +45,7 @@ PLOT_PCA_3D = "PCA (3D)"
 PLOT_LDA_2D = "Linear Discriminant Analysis"
 PLOT_QDA_2D = "Quadratic Discriminant Analysis"
 PLOT_CORR_MATRIX = "Correlation matrix"
+PLOT_NCA = "Neighborhood Component Analysis"
 
 AVAILABLE_PLOTS = [
     PLOT_SCATTER,
@@ -59,8 +63,9 @@ AVAILABLE_PLOTS = [
     PLOT_PCA_2D,
     PLOT_PCA_3D,
     PLOT_LDA_2D,
-    PLOT_QDA_2D,
-    # PLOT_CORR_MATRIX,
+    PLOT_NCA,
+    # PLOT_QDA_2D,
+    PLOT_CORR_MATRIX,
 ]
 
 PLOT_HAS_X = [
@@ -95,6 +100,7 @@ PLOT_HAS_COLOR = [
     PLOT_PCA_2D,
     PLOT_PCA_3D,
     PLOT_LDA_2D,
+    PLOT_NCA,
     PLOT_QDA_2D,
     PLOT_LINE,
     PLOT_BAR,
@@ -110,15 +116,16 @@ PLOT_HAS_TEXT = [
     PLOT_PCA_2D,
     PLOT_PCA_3D,
     PLOT_LDA_2D,
+    PLOT_NCA,
     PLOT_QDA_2D,
     PLOT_LINE,
     PLOT_BAR,
 ]
 PLOT_HAS_FACET = [
     PLOT_SCATTER,
-    PLOT_SCATTER_3D,
     PLOT_PCA_2D,
     PLOT_LDA_2D,
+    PLOT_NCA,
     PLOT_QDA_2D,
     PLOT_LINE,
     PLOT_BAR,
@@ -151,6 +158,7 @@ PLOT_HAS_MARGINAL_XY = [
     PLOT_SCATTER,
     PLOT_PCA_2D,
     PLOT_LDA_2D,
+    PLOT_NCA,
     PLOT_QDA_2D,
     PLOT_DENSITY_HEATMAP,
     PLOT_DENSITY_CONTOUR,
@@ -164,6 +172,7 @@ PLOT_HAS_SIZE = [
     PLOT_PCA_2D,
     PLOT_PCA_3D,
     PLOT_LDA_2D,
+    PLOT_NCA,
     PLOT_QDA_2D,
 ]
 
@@ -173,11 +182,11 @@ PLOT_HAS_SHAPE = [
     PLOT_PCA_2D,
     PLOT_PCA_3D,
     PLOT_LDA_2D,
+    PLOT_NCA,
     PLOT_QDA_2D,
 ]
 PLOT_HAS_TREND_LINE = [
     PLOT_SCATTER,
-    PLOT_SCATTER_3D,
     PLOT_DENSITY_CONTOUR,
 ]
 PLOT_HAS_POINTS = [
@@ -195,6 +204,7 @@ PLOT_HAS_ANIM = [
     PLOT_DENSITY_CONTOUR,
     PLOT_PCA_2D,
     PLOT_LDA_2D,
+    PLOT_NCA,
     PLOT_QDA_2D,
 ]
 
@@ -208,16 +218,19 @@ PLOT_HAS_CUSTOM_HOVER_DATA = [
     PLOT_PCA_2D,
     PLOT_PCA_3D,
     PLOT_LDA_2D,
+    PLOT_NCA,
     PLOT_QDA_2D,
 ]
 
 PLOT_HAS_TARGET = [
     PLOT_LDA_2D,
+    PLOT_NCA,
     PLOT_QDA_2D,
 ]
 
 PLOT_HAS_IGNORE_COLUMNS = [
     PLOT_LDA_2D,
+    PLOT_NCA,
     PLOT_QDA_2D,
     PLOT_PCA_2D,
     PLOT_PCA_3D,
@@ -225,4 +238,16 @@ PLOT_HAS_IGNORE_COLUMNS = [
 
 PLOT_HAS_PROGRESS_DISPLAY = [
     PLOT_SCATTER_MATRIX,
+]
+
+PLOT_HAS_SOLVER = [
+    PLOT_LDA_2D,
+]
+
+PLOT_HAS_NCOMP = [
+    PLOT_NCA,
+]
+
+PLOT_HAS_INIT = [
+    PLOT_NCA,
 ]
