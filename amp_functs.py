@@ -170,6 +170,17 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
                 z = kwargs.get("z")
                 kwargs["range_z"] = None if z not in num_columns else [df[z].min(), df[z].max()]
 
+    # Color categorization
+    # color_column = kwargs.get("color", None)
+    # if (
+    #     color_column is not None
+    #     and color_column in df.select_dtypes(include=[np.number]).columns.to_list()
+    #     and len(df[color_column].unique()) < 12
+    # ):
+    #     cat_clr_name = f"{color_column}_as_cat"
+    #     df[cat_clr_name] = df[color_column].astype("category")
+    #     kwargs["color"] = cat_clr_name
+
     kwargs["data_frame"] = df
 
     fig = None
@@ -440,7 +451,11 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
         print("No fig")
 
     if fig is not None:
-        fig.update_layout(height=kwargs["height"], template=kwargs["template"])
+        fig.update_layout(
+            height=kwargs["height"],
+            template=kwargs["template"],
+            legend={"traceorder": "normal"},
+        )
 
     return {
         k: v

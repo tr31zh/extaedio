@@ -1,5 +1,7 @@
 import io
+import os
 import time
+import base64
 
 import streamlit as st
 import pandas as pd
@@ -20,7 +22,9 @@ from amp_consts import (
     PICK_ONE,
     NONE_SELECTED,
     AVAILABLE_URLS,
-    AVAILABLE_PLOTS,
+    BASIC_PLOTS,
+    ADVANCED_PLOTS,
+    ALL_PLOTS,
     URL_LOCAL_FILE,
     URL_DISTANT_FILE,
     PLOT_SCATTER,
@@ -87,30 +91,53 @@ def get_df_from_url(url):
     return get_dataframe_from_url(url)
 
 
-st.title("Ex Taedio")
-
-st.markdown("""Welcome to Ex Taedio, a dashboard to help you generate plots from CSV files.""")
-
-st.header("Display options")
-show_info = st.checkbox(label="Show information panels", value=True)
-
-if show_info:
-    st.info(
-        """
-    - **Plot settings to side bar**:Put the plot setttings in the sidebar instead 
-    of with all the other settings (Recommended).  
-    - **Force wide display**: Set the main UI to occupy all the available space,
-    can also be set from the settings. This overrides the settings if checked.
-    """
-    )
-use_side_bar = st.checkbox(label="Plot settings to side bar", value=True)
-if st.checkbox(label="Force wide display", value=True,):
-    _max_width_()
-
-
 def customize_plot():
 
-    st.header("Load dataframe, usually a CSV file")
+    step = 1
+
+    st.title("Ex Taedio")
+
+    st.markdown(
+        """Welcome to Ex Taedio, a dashboard to help you generate plots from CSV files."""
+    )
+
+    show_info = st.checkbox(
+        label="Show information panels (blue panels with hints and tips).", value=False
+    )
+
+    adv_mode = st.checkbox(label="Advanced mode", value=False)
+    st.info(
+        """
+        **Advanced mode** will add:
+        - Options to customize display
+        - Option to enable data wrangling (filtering columns and rows)
+        - Option to add advanced plots to list
+        - Option to add advanced customization to plots
+        """
+    )
+
+    if adv_mode:
+        st.header(f"Step {step} - Set display options")
+        step += 1
+
+        if show_info:
+            st.info(
+                """
+                - **Plot settings to side bar**:Put the plot setttings in the sidebar instead 
+                of with all the other settings (Recommended).  
+                - **Force wide display**: Set the main UI to occupy all the available space,
+                can also be set from the settings. This overrides the settings if checked.
+                """
+            )
+        use_side_bar = st.checkbox(label="Plot settings to side bar", value=True)
+        if st.checkbox(label="Force wide display", value=True,):
+            _max_width_()
+    else:
+        use_side_bar = True
+        _max_width_()
+
+    st.header(f"Step {step} - Load dataframe in CSV format")
+    step += 1
     if show_info:
         st.info(
             f"""
@@ -135,136 +162,182 @@ def customize_plot():
         return
     df = df_loaded.copy().reset_index(drop=True)
 
-    st.header("Advanced settings")
-    if show_info:
-        st.info(
-            """
-        If activated, this settings can quickly become overwhelming.  
-        - **Show dataframe customization options**: Add widgets to sort, filter and clean the dataframe.  
-        - **Show plot customization advanced options**: Add widgets to further customize the plots.  
-        - **Defer rendering**: Only generate plot when user presses the render button.
-        Usefull if the rendering takes too long when changing a parameter.
-        """
-        )
-
-    show_dw_options = st.checkbox(label="Show dataframe customization options.")
-    show_advanced_settings = st.checkbox(label="Show plot advanced options", value=False)
-    defer_render = st.checkbox(label="Defer rendering", value=False)
-
-    if show_dw_options:
-        # Sorting
-        st.header("Sort columns")
+    if adv_mode:
+        st.header(f"Step {step} - Set advanced settings")
+        step += 1
         if show_info:
             st.info(
                 """
-            Select columns to sort the dataframe, if multiple columns are selected,
-            sort will be applied in the displayed order.
+            If activated, this settings can quickly become overwhelming.  
+            - **Show advanced plots.**: Expand the list of available plots.
+            - **Show dataframe customization options**: Add widgets to sort, filter and clean the dataframe.  
+            - **Show plot customization advanced options**: Add widgets to further customize the plots.  
+            - **Defer rendering**: Only generate plot when user presses the render button.
+            Usefull if the rendering takes too long when changing a parameter.
             """
             )
-        sort_columns = st.multiselect(label="Sort by", options=df.columns.to_list())
-        invert_sort = st.checkbox(label="Reverse sort?", value=False)
-        if sort_columns:
-            df = df.sort_values(sort_columns, ascending=not invert_sort)
-        # Filter
-        st.header("Filtering")
-        if show_info:
-            st.info("Some options to modify the dataframe")
 
-        st.subheader("Selected data frame")
-        if show_info:
-            st.info("Displays n lines of the original dataframe")
-        line_display_count = st.number_input(
-            label="Lines to display", min_value=5, max_value=1000, value=5
-        )
-        st.dataframe(df.head(line_display_count))
+        show_advanced_plots = st.checkbox(label="Show advanced plots.", value=False)
+        show_dw_options = st.checkbox(label="Show dataframe customization options.")
+        show_advanced_settings = st.checkbox(label="Show plot advanced options", value=False)
+        defer_render = st.checkbox(label="Defer rendering", value=False)
 
-        st.subheader("Dataframe description")
-        if show_info:
-            st.info(
+        if show_dw_options:
+            # Sorting
+            st.header(f"Step {step} - Sort columns")
+            step += 1
+            if show_info:
+                st.info(
+                    """
+                Select columns to sort the dataframe, if multiple columns are selected,
+                sort will be applied in the displayed order.
                 """
-                Display info about the dataframe's numerical 
-                columns and types associated to all columns
-                """
-            )
-        st.dataframe(df.describe())
-        st.write(df.dtypes)
+                )
+            sort_columns = st.multiselect(label="Sort by", options=df.columns.to_list())
+            invert_sort = st.checkbox(label="Reverse sort?", value=False)
+            if sort_columns:
+                df = df.sort_values(sort_columns, ascending=not invert_sort)
+            # Filter
+            st.header(f"Step {step} - Filter rows")
+            step += 1
+            if show_info:
+                st.info("Some options to modify the dataframe")
 
-        st.subheader("Select columns to keep")
-        if show_info:
-            st.info(
-                """
-                Remove all columns that will not be needed, 
-                the lower the number of columns the faster the dashboard will run
-                """
+            st.subheader("Selected data frame")
+            if show_info:
+                st.info("Displays n lines of the original dataframe")
+            line_display_count = st.number_input(
+                label="Lines to display", min_value=5, max_value=1000, value=5
             )
-        kept_columns = st.multiselect(
-            label="Columns to keep", options=df.columns.to_list(), default=df.columns.to_list(),
-        )
-        df = df[kept_columns]
+            st.dataframe(df.head(line_display_count))
 
-        st.subheader("Filter rows")
-        if show_info:
-            st.info(
-                """Select which columns will be filtered by values.  
-                Only date and string columns can be filtered at the moment"""
+            st.subheader("Dataframe description")
+            if show_info:
+                st.info(
+                    """
+                    Display info about the dataframe's numerical 
+                    columns and types associated to all columns
+                    """
+                )
+            st.dataframe(df.describe())
+            st.write(df.dtypes)
+
+            st.subheader("Select columns to keep")
+            if show_info:
+                st.info(
+                    """
+                    Remove all columns that will not be needed, 
+                    the lower the number of columns the faster the dashboard will run
+                    """
+                )
+            kept_columns = st.multiselect(
+                label="Columns to keep",
+                options=df.columns.to_list(),
+                default=df.columns.to_list(),
             )
-        filter_columns = st.multiselect(
-            label="Select which columns you want to use to filter the rows:",
-            options=df.select_dtypes(include=["object", "datetime"]).columns.to_list(),
-            default=None,
-        )
-        if filter_columns and show_info:
-            st.info(
-                """For each selected column select all the values that will be included.
-                Less rows means faster dashboard"""
+            df = df[kept_columns]
+
+            st.subheader("Filter rows")
+            if show_info:
+                st.info(
+                    """Select which columns will be filtered by values.  
+                    Only date and string columns can be filtered at the moment"""
+                )
+            filter_columns = st.multiselect(
+                label="Select which columns you want to use to filter the rows:",
+                options=df.select_dtypes(include=["object", "datetime"]).columns.to_list(),
+                default=None,
             )
-        filters = {}
-        for column in filter_columns:
-            st.subheader(f"{column}: ")
-            select_all = st.checkbox(label=f"{column} Select all:")
-            elements = list(df[column].unique())
-            filters[column] = st.multiselect(
-                label=f"Select which {column} to include",
-                options=elements,
-                default=None if not select_all else elements,
+            if filter_columns and show_info:
+                st.info(
+                    """For each selected column select all the values that will be included.
+                    Less rows means faster dashboard"""
+                )
+            filters = {}
+            for column in filter_columns:
+                st.subheader(f"{column}: ")
+                select_all = st.checkbox(label=f"{column} Select all:")
+                elements = list(df[column].unique())
+                filters[column] = st.multiselect(
+                    label=f"Select which {column} to include",
+                    options=elements,
+                    default=None if not select_all else elements,
+                )
+            if len(filters) > 0:
+                for k, v in filters.items():
+                    df = df[df[k].isin(v)]
+
+            st.subheader("Bin columns")
+            if show_info:
+                st.info(
+                    """Select which columns will be binned.  
+                    Numeric columns only"""
+                )
+            bin_columns = st.multiselect(
+                label="Select which columns you want replace by bins:",
+                options=df.select_dtypes(include=[np.number]).columns.to_list(),
+                default=None,
             )
-        if len(filters) > 0:
-            for k, v in filters.items():
-                df = df[df[k].isin(v)]
+            if bin_columns and show_info:
+                st.info("""For each selected column select the bin value""")
+            binners = {}
+            for column in bin_columns:
+                st.subheader(f"{column}: ")
+                binners[column] = st.number_input(
+                    label="Bin count:",
+                    min_value=1,
+                    max_value=len(df[column].unique()),
+                    value=10,
+                )
+            if len(binners) > 0:
+                for k, v in binners.items():
+                    df[k] = pd.cut(df[k], v)
 
-        st.subheader("Clean up")
-        if st.checkbox(label="Remove duplicates", value=False):
-            df = df.drop_duplicates()
-        if show_info:
-            st.info("Some plots like PCA won't work if NA values are present in the dataframe")
-        if st.checkbox(label="Remove rows with NA values", value=False):
-            df = df.dropna(axis="index")
+            st.subheader("Clean up")
+            if st.checkbox(label="Remove duplicates", value=False):
+                df = df.drop_duplicates()
+            if show_info:
+                st.info(
+                    "Some plots like PCA won't work if NA values are present in the dataframe"
+                )
+            if st.checkbox(label="Remove rows with NA values", value=False):
+                df = df.dropna(axis="index")
 
-        df = df.reset_index(drop=True)
+            df = df.reset_index(drop=True)
 
-        # Preview dataframe
-        st.subheader("filtered data frame numeric data description")
-        if show_info:
-            st.info("Display info about the filtered dataframe's numerical ")
-        st.dataframe(df.describe())
+            # Preview dataframe
+            st.subheader("filtered data frame numeric data description and column types")
+            if show_info:
+                st.info("Display info about the filtered dataframe's numerical ")
+            st.dataframe(df.describe())
+            st.write(df.dtypes)
+    else:
+        show_advanced_settings = False
+        defer_render = False
+        show_advanced_plots = False
 
     qs = st.sidebar if use_side_bar else st
     if use_side_bar:
         pass
     else:
-        st.header("Plot customization")
+        st.header(f"Step {step} - Plot customization")
+        step += 1
 
     num_columns = df.select_dtypes(include=[np.number]).columns.to_list()
     cat_columns = df.select_dtypes(include=["object", "datetime"]).columns.to_list()
     supervision_columns = df.select_dtypes(include=["object", "number"]).columns.to_list()
     all_columns = df.columns.to_list()
-    plot_data_dict = {}
 
     qs.subheader("Plot selection")
 
     # Select type
-    plot_type = qs.selectbox(label="Plot type: ", options=AVAILABLE_PLOTS, index=0,)
-    st.header(f"Plot: {plot_type}")
+    plot_type = qs.selectbox(
+        label="Plot type: ", options=ALL_PLOTS if show_advanced_plots else BASIC_PLOTS, index=0,
+    )
+    st.header(
+        f"Step {step} - Plot {plot_type}{' customization (Widgets in sidebar)' if use_side_bar else ''}"
+    )
+    step += 1
     if plot_type == PLOT_SCATTER:
         doc, _ = px.scatter.__doc__.split("\nParameters")
         st.write(doc.strip())
@@ -315,9 +388,17 @@ def customize_plot():
     if plot_type in [PLOT_LDA_2D, PLOT_NCA]:
         qs.warning("If plotting fails, make sure that no variable is colinear with your target")
 
+    plot_data_dict = {}
+
     # Select mode
     is_anim = plot_type in PLOT_HAS_ANIM and qs.checkbox(label="Build animation", value=False)
     if is_anim:
+        if show_info:
+            qs.info(
+                """Animation will be rendered when the **render** 
+                button bellow the plot title is pressed
+                """
+            )
         usual_time_columns = [
             "date",
             "date_time",
@@ -383,7 +464,15 @@ def customize_plot():
                         date_series = date_series + "-01"
                     df[new_time_column] = pd.to_datetime(date_series)
                 else:
-                    df[new_time_column] = pd.to_datetime(df[plot_data_dict["time_column"]])
+                    try:
+                        df[new_time_column] = pd.to_datetime(df[plot_data_dict["time_column"]])
+                    except Exception as e:
+                        qs.warning(
+                            "Failed to convert column to time, switching to category mode."
+                        )
+                        df[new_time_column] = (
+                            df[plot_data_dict["time_column"]].astype("category").cat.codes
+                        )
             except Exception as e:
                 qs.error(
                     f"Unable to set {plot_data_dict['time_column']} as time reference column because {repr(e)}"
@@ -510,7 +599,7 @@ def customize_plot():
     # Ignored columns
     if plot_type in PLOT_HAS_IGNORE_COLUMNS:
         plot_data_dict["ignore_columns"] = qs.multiselect(
-            label="Ignore columns:",
+            label="Ignore this columns when building the model:",
             options=all_columns,
             default=[plot_data_dict["target"]] if plot_type in PLOT_HAS_TARGET else [],
         )
@@ -736,39 +825,42 @@ def customize_plot():
         if plot_type == PLOT_CORR_MATRIX:
             plot_data_dict["corr_method"] = "pearson"
 
-    qs.subheader("Sizing and theming")
-    plot_data_dict["height"] = int(
-        qs.selectbox(
-            label="Plot height in pixels",
-            options=[
-                "400",
-                "600",
-                "700",
-                "800",
-                "900",
-                "1000",
-                "1200",
-                "1400",
-                "1600",
-                "1800",
-                "2000",
-            ],
-            index=4,
+    if adv_mode:
+        plot_data_dict["height"] = int(
+            qs.selectbox(
+                label="Plot height in pixels",
+                options=[
+                    "400",
+                    "600",
+                    "700",
+                    "800",
+                    "900",
+                    "1000",
+                    "1200",
+                    "1400",
+                    "1600",
+                    "1800",
+                    "2000",
+                ],
+                index=4,
+            )
         )
-    )
-    # Template
-    available_templates = list(pio.templates.keys())
-    plot_data_dict["template"] = qs.selectbox(
-        label="Plot template: ",
-        options=available_templates,
-        index=available_templates.index(pio.templates.default),
-    )
+        # Template
+        available_templates = list(pio.templates.keys())
+        plot_data_dict["template"] = qs.selectbox(
+            label="Plot template (theme): ",
+            options=available_templates,
+            index=available_templates.index(pio.templates.default),
+        )
+    else:
+        plot_data_dict["height"] = 900
+        plot_data_dict["template"] = pio.templates.default
 
     if (is_anim or defer_render) and not st.button(label="Render", key="render_plot"):
         if is_anim and show_info:
             st.info(
                 """Since animations may tak long to initialize, 
-                the rendering starts only when you click on the render button"""
+                the rendering starts only when you click on the **render** button above"""
             )
         return
 
@@ -788,6 +880,13 @@ def customize_plot():
 
     if fig_data:
         if "figure" in fig_data:
+            html = fig_data.get("figure", None).to_html()
+            b64 = base64.b64encode(html.encode()).decode()
+            href = f"""<a href="data:file/html;base64,{b64}">
+            Download plot as HTML file</a> 
+            (Does not work on windows) 
+            - right-click and save as &lt;some_name&gt;.html"""
+            st.markdown(href, unsafe_allow_html=True)
             st.plotly_chart(
                 figure_or_data=fig_data.get("figure", None), use_container_width=True
             )
