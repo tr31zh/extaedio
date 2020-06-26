@@ -1,6 +1,6 @@
 import io
 import os
-import time
+
 import base64
 
 import streamlit as st
@@ -69,7 +69,7 @@ from amp_consts import (
     PLOT_HAS_NCOMP,
     PLOT_HAS_INIT,
 )
-from amp_functs import get_dataframe_from_url, format_csv_link, build_plot
+from amp_functs import get_dataframe_from_url, format_csv_link, build_plot, get_plot_help
 
 
 def _max_width_():
@@ -98,7 +98,8 @@ def customize_plot():
     st.title("Ex Taedio")
 
     st.markdown(
-        """Welcome to Ex Taedio, a dashboard to help you generate plots from CSV files."""
+        """Welcome to Ex Taedio, a dashboard to help you generate plots from CSV files.  
+        Click [here](https://github.com/tr31zh/ask_me_polotly) for the source code and help."""
     )
 
     show_info = st.checkbox(
@@ -338,53 +339,8 @@ def customize_plot():
         f"Step {step} - Plot {plot_type}{' customization (Widgets in sidebar)' if use_side_bar else ''}"
     )
     step += 1
-    if plot_type == PLOT_SCATTER:
-        doc, _ = px.scatter.__doc__.split("\nParameters")
-        st.write(doc.strip())
-    elif plot_type == PLOT_SCATTER_3D:
-        doc, _ = px.scatter_3d.__doc__.split("\nParameters")
-        st.write(doc.strip())
-    elif plot_type == PLOT_LINE:
-        doc, _ = px.line.__doc__.split("\nParameters")
-        st.write(doc.strip())
-    elif plot_type == PLOT_BAR:
-        doc, _ = px.bar.__doc__.split("\nParameters")
-        st.write(doc.strip())
-    elif plot_type == PLOT_HISTOGRAM:
-        doc, _ = px.histogram.__doc__.split("\nParameters")
-        st.write(doc.strip())
-    elif plot_type == PLOT_BOX:
-        doc, _ = px.box.__doc__.split("\nParameters")
-        st.write(doc.strip())
-    elif plot_type == PLOT_VIOLIN:
-        doc, _ = px.violin.__doc__.split("\nParameters")
-        st.write(doc.strip())
-    elif plot_type == PLOT_DENSITY_HEATMAP:
-        doc, _ = px.density_heatmap.__doc__.split("\nParameters")
-        st.write(doc.strip())
-    elif plot_type == PLOT_DENSITY_CONTOUR:
-        doc, _ = px.density_contour.__doc__.split("\nParameters")
-        st.write(doc.strip())
-    elif plot_type == PLOT_PARALLEL_CATEGORIES:
-        doc, _ = px.parallel_categories.__doc__.split("\nParameters")
-        st.write(doc.strip())
-    elif plot_type == PLOT_PARALLEL_COORDINATES:
-        doc, _ = px.parallel_coordinates.__doc__.split("\nParameters")
-        st.write(doc.strip())
-    elif plot_type == PLOT_SCATTER_MATRIX:
-        st.write("Plot a scatter mattrix for all selected columns")
-    elif plot_type in [PLOT_PCA_2D]:
-        st.write("Plot 2D PCA")
-    elif plot_type in [PLOT_PCA_3D]:
-        st.write("Plot 3D PCA")
-    elif plot_type == PLOT_CORR_MATRIX:
-        st.write("Plot correlation matrix")
-    elif plot_type == PLOT_LDA_2D:
-        st.write(PLOT_LDA_2D)
-    elif plot_type == PLOT_QDA_2D:
-        st.write(PLOT_QDA_2D + "On 2D PCA")
-    elif plot_type == PLOT_NCA:
-        st.write(PLOT_NCA)
+
+    st.write(get_plot_help(plot_type))
     if plot_type in [PLOT_LDA_2D, PLOT_NCA]:
         qs.warning("If plotting fails, make sure that no variable is colinear with your target")
 
@@ -869,7 +825,6 @@ def customize_plot():
 
         def update_progress(step, total):
             progress.progress(min(100, int(step / total * 100)))
-            time.sleep(1)
 
     else:
         update_progress = None

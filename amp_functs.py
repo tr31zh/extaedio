@@ -69,6 +69,80 @@ def format_csv_link(url):
         return url
 
 
+def get_plot_help(plot_type) -> str:
+    if plot_type == PLOT_SCATTER:
+        doc, _ = px.scatter.__doc__.split("\nParameters")
+    elif plot_type == PLOT_SCATTER_3D:
+        doc, _ = px.scatter_3d.__doc__.split("\nParameters")
+    elif plot_type == PLOT_LINE:
+        doc, _ = px.line.__doc__.split("\nParameters")
+    elif plot_type == PLOT_BAR:
+        doc, _ = px.bar.__doc__.split("\nParameters")
+    elif plot_type == PLOT_HISTOGRAM:
+        doc, _ = px.histogram.__doc__.split("\nParameters")
+    elif plot_type == PLOT_BOX:
+        doc, _ = px.box.__doc__.split("\nParameters")
+    elif plot_type == PLOT_VIOLIN:
+        doc, _ = px.violin.__doc__.split("\nParameters")
+    elif plot_type == PLOT_DENSITY_HEATMAP:
+        doc, _ = px.density_heatmap.__doc__.split("\nParameters")
+    elif plot_type == PLOT_DENSITY_CONTOUR:
+        doc, _ = px.density_contour.__doc__.split("\nParameters")
+    elif plot_type == PLOT_PARALLEL_CATEGORIES:
+        doc, _ = px.parallel_categories.__doc__.split("\nParameters")
+    elif plot_type == PLOT_PARALLEL_COORDINATES:
+        doc, _ = px.parallel_coordinates.__doc__.split("\nParameters")
+    elif plot_type == PLOT_SCATTER_MATRIX:
+        doc = "Plot a scatter mattrix for all selected columns"
+    elif plot_type in [PLOT_PCA_2D]:
+        doc = """
+        **Principal component analysis (2 dimensions)**  
+        Given a collection of points in two, three, or higher dimensional space, 
+        a "best fitting" line can be defined as one that minimizes the average squared distance 
+        from a point to the line. The next best-fitting line can be similarly chosen from 
+        directions perpendicular to the first. Repeating this process yields an orthogonal 
+        basis in which different individual dimensions of the data are uncorrelated. 
+        These basis vectors are called principal components, and several related procedures 
+        principal component analysis (PCA).
+        """
+    elif plot_type in [PLOT_PCA_3D]:
+        doc = """
+        **Principal component analysis (3 dimensions)**  
+        Given a collection of points in two, three, or higher dimensional space, 
+        a "best fitting" line can be defined as one that minimizes the average squared distance 
+        from a point to the line. The next best-fitting line can be similarly chosen from 
+        directions perpendicular to the first. Repeating this process yields an orthogonal 
+        basis in which different individual dimensions of the data are uncorrelated. 
+        These basis vectors are called principal components, and several related procedures 
+        principal component analysis (PCA).
+        """
+    elif plot_type == PLOT_CORR_MATRIX:
+        doc = "Plot correlation matrix"
+    elif plot_type == PLOT_LDA_2D:
+        doc = """
+        **Linear discriminant analysis (LDA)**  
+        A generalization of Fisher's linear discriminant, a method used in statistics, 
+        pattern recognition, and machine learning to find a linear combination of features 
+        that characterizes or separates two or more classes of objects or events. The resulting 
+        combination may be used as a linear classifier, or, more commonly, for dimensionality 
+        reduction before later classification.
+        """
+    elif plot_type == PLOT_QDA_2D:
+        doc = PLOT_QDA_2D + "On 2D PCA"
+    elif plot_type == PLOT_NCA:
+        doc = """
+        **Neighborhood components analysis**  
+        A supervised learning method for classifying multivariate data into distinct classes 
+        according to a given distance metric over the data. Functionally, it serves the same 
+        purposes as the K-nearest neighbors algorithm, and makes direct use of a related concept 
+        termed stochastic nearest neighbors.
+        """
+    else:
+        doc = "Unknown"
+
+    return doc
+
+
 def filter_none(value):
     return None if value == NONE_SELECTED else value
 
