@@ -1,0 +1,130 @@
+<h1 id="ex-taedio">Ex Taedio</h1>
+<blockquote class="twitter-tweet">
+<p lang="en" dir="ltr">
+Remember, a few hours of trial and error can save you several minutes of looking at the README.
+</p>
+— I Am Devloper (<span class="citation" data-cites="iamdevloper">@iamdevloper</span>) <a href="https://twitter.com/iamdevloper/status/1060067235316809729?ref_src=twsrc%5Etfw">November 7, 2018</a>
+</blockquote>
+<p>Ex Taedio is a dashboard built using <a href="https://www.streamlit.io/">Streamlit</a> and <a href="https://plotly.com/">Plotly</a>. Its goal is to help the user create plots and visualizations.</p>
+<h2 id="getting-started">Getting Started</h2>
+<p>Ex Taedio is available as an heroku app <a href="https://extaedio.herokuapp.com/">here</a> but you can also build it yourself following these instructions.</p>
+<h3 id="prerequisites">Prerequisites</h3>
+<p>You need Python, at least version 3.6, installed on your computer.</p>
+<h3 id="installing">Installing</h3>
+<ul>
+<li>Clone the repository at this address: https://github.com/tr31zh/ask_me_polotly</li>
+<li>Move into the created folder</li>
+<li>Create new environment: <em>python -m venv env</em></li>
+<li>Activate environment: <em>source ./env/bin/activate</em></li>
+<li>Clone environment: <em>pip install -r requirements.txt</em></li>
+<li>Run Ex Taedio: <em>streamlit run sl_plot_me.py</em></li>
+</ul>
+<h2 id="using">Using</h2>
+<ul>
+<li>Enable <em>Show information panels (blue panels with hints and tips).</em> if in need of help.</li>
+<li>Advanced functionality is hidden behind the <em>Advanced mode</em> checkbox.</li>
+<li>When advanced mode is active, data wrangling, advanced plots and advanced plot settings can be enabled.</li>
+</ul>
+<h3 id="basic-plots">Basic plots</h3>
+<h4 id="scatter">Scatter</h4>
+<pre><code>In a scatter plot, each row of `data_frame` is represented by a symbol
+mark in 2D space.</code></pre>
+<h4 id="bar">Bar</h4>
+<pre><code>In a bar plot, each row of `data_frame` is represented as a rectangular
+mark.</code></pre>
+<h4 id="histogram">Histogram</h4>
+<pre><code>In a histogram, rows of `data_frame` are grouped together into a
+rectangular mark to visualize the 1D distribution of an aggregate
+function `histfunc` (e.g. the count or sum) of the value `y` (or `x` if
+`orientation` is `&#39;h&#39;`).</code></pre>
+<h4 id="violin-plot">Violin plot</h4>
+<pre><code>In a violin plot, rows of `data_frame` are grouped together into a
+curved mark to visualize their distribution.</code></pre>
+<h4 id="box-plot---if-you-must">Box plot - if you must</h4>
+<pre><code>In a box plot, rows of `data_frame` are grouped together into a
+box-and-whisker mark to visualize their distribution.
+
+Each box spans from quartile 1 (Q1) to quartile 3 (Q3). The second
+quartile (Q2) is marked by a line inside the box. By default, the
+whiskers correspond to the box&#39; edges +/- 1.5 times the interquartile
+range (IQR: Q3-Q1), see &quot;points&quot; for other options.</code></pre>
+<h4 id="pca-2d">PCA (2D)</h4>
+<pre><code>**Principal component analysis (2 dimensions)**
+Given a collection of points in two, three, or higher dimensional space,
+a &quot;best fitting&quot; line can be defined as one that minimizes the average squared distance
+from a point to the line. The next best-fitting line can be similarly chosen from
+directions perpendicular to the first. Repeating this process yields an orthogonal
+basis in which different individual dimensions of the data are uncorrelated.
+These basis vectors are called principal components, and several related procedures
+principal component analysis (PCA).</code></pre>
+<h3 id="advanced-plots">Advanced plots</h3>
+<h4 id="scatter-3d">Scatter 3D</h4>
+<pre><code>In a 3D scatter plot, each row of `data_frame` is represented by a
+symbol mark in 3D space.</code></pre>
+<h4 id="line">Line</h4>
+<pre><code>In a 2D line plot, each row of `data_frame` is represented as vertex of
+a polyline mark in 2D space.</code></pre>
+<h4 id="density-heat-map">Density heat map</h4>
+<pre><code>In a density heatmap, rows of `data_frame` are grouped together into
+colored rectangular tiles to visualize the 2D distribution of an
+aggregate function `histfunc` (e.g. the count or sum) of the value `z`.</code></pre>
+<h4 id="density-contour">Density contour</h4>
+<pre><code>In a density contour plot, rows of `data_frame` are grouped together
+into contour marks to visualize the 2D distribution of an aggregate
+function `histfunc` (e.g. the count or sum) of the value `z`.</code></pre>
+<h4 id="parallel-categories">Parallel categories</h4>
+<pre><code>In a parallel categories (or parallel sets) plot, each row of
+`data_frame` is grouped with other rows that share the same values of
+`dimensions` and then plotted as a polyline mark through a set of
+parallel axes, one for each of the `dimensions`.</code></pre>
+<h4 id="parallel-coordinates">Parallel coordinates</h4>
+<pre><code>In a parallel coordinates plot, each row of `data_frame` is represented
+by a polyline mark which traverses a set of parallel axes, one for each
+of the `dimensions`.</code></pre>
+<h4 id="scatter-matrix">Scatter matrix</h4>
+<pre><code>Plot a scatter mattrix for all selected columns</code></pre>
+<h4 id="pca-3d">PCA (3D)</h4>
+<pre><code>**Principal component analysis (3 dimensions)**
+Given a collection of points in two, three, or higher dimensional space,
+a &quot;best fitting&quot; line can be defined as one that minimizes the average squared distance
+from a point to the line. The next best-fitting line can be similarly chosen from
+directions perpendicular to the first. Repeating this process yields an orthogonal
+basis in which different individual dimensions of the data are uncorrelated.
+These basis vectors are called principal components, and several related procedures
+principal component analysis (PCA).</code></pre>
+<h4 id="linear-discriminant-analysis">Linear Discriminant Analysis</h4>
+<pre><code>A generalization of Fisher&#39;s linear discriminant, a method used in statistics,
+pattern recognition, and machine learning to find a linear combination of features
+that characterizes or separates two or more classes of objects or events. The resulting
+combination may be used as a linear classifier, or, more commonly, for dimensionality
+reduction before later classification.</code></pre>
+<h4 id="neighborhood-component-analysis">Neighborhood Component Analysis</h4>
+<pre><code>A supervised learning method for classifying multivariate data into distinct classes
+according to a given distance metric over the data. Functionally, it serves the same
+purposes as the K-nearest neighbors algorithm, and makes direct use of a related concept
+termed stochastic nearest neighbors.</code></pre>
+<h4 id="correlation-matrix">Correlation matrix</h4>
+<pre><code>Plot correlation matrix</code></pre>
+<h2 id="deployment">Deployment</h2>
+<p>Ex Taedio has been deployed to <a href="www.heroku.com">Heroku</a>. At the moment of writing this readme the deployment can be done with the wizard in heroku’s dashboard.</p>
+<h2 id="built-with">Built With</h2>
+<ul>
+<li><a href="https://www.streamlit.io/">Streamlit</a> - The framework used to build the dashboard.</li>
+<li><a href="https://plotly.com/">Plotly</a> - The plotting library</li>
+<li><a href="https://pandas.pydata.org/">Pandas</a>, <a href="https://numpy.org/">Numpy</a> - Of course</li>
+<li><a href="https://scikit-learn.org/stable/">Scikit learn</a> - Machine learning</li>
+</ul>
+<h2 id="to-do">To do</h2>
+<ul>
+<li>Fix trend lines</li>
+<li>Add seaborn version</li>
+<li>Add save restore plot co,figuration</li>
+</ul>
+<h2 id="contributing">Contributing</h2>
+<p>Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.</p>
+<h2 id="authors">Authors</h2>
+<ul>
+<li><strong>Felicià MAVIANE</strong> - <a href="https://github.com/tr31zh">tr31zh</a></li>
+</ul>
+<h2 id="license">License</h2>
+<p>This project is licensed under the MIT License - see the <a href="%5BLICENSE.md%5D(https://github.com/tr31zh/ask_me_polotly/blob/master/LICENSE)">LICENSE</a> file for details.</p>

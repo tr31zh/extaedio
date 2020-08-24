@@ -47,10 +47,9 @@ def customize_plot():
 
     st.title("Ex Taedio")
 
-    st.markdown(
-        """Welcome to Ex Taedio, a dashboard to help you generate plots from CSV files.  
-        Click [here](https://github.com/tr31zh/ask_me_polotly) for the source code and help."""
-    )
+    st.markdown("Welcome to Ex Taedio, a dashboard to help you generate plots from CSV files.")
+    st.markdown("- Click [here](https://github.com/tr31zh/ask_me_polotly) for help.")
+    st.markdown("- Click [here](https://github.com/tr31zh/ask_me_polotly) for the source code.")
 
     show_info = st.checkbox(
         label="Show information panels (blue panels with hints and tips).", value=False
