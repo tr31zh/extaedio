@@ -154,6 +154,12 @@ Ex Taedio has been deployed to [Heroku](www.heroku.com). At the moment of writin
 - [Pandas](https://pandas.pydata.org/), [Numpy](https://numpy.org/) - Of course
 - [Scikit learn](https://scikit-learn.org/stable/) - Machine learning
 
+## To do
+
+- Fix trend lines
+- Add seaborn version
+- Add save restore plot co,figuration
+
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.

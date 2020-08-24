@@ -18,57 +18,7 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from datetime import datetime as dt
 
-from amp_consts import (
-    PICK_ONE,
-    NONE_SELECTED,
-    AVAILABLE_URLS,
-    BASIC_PLOTS,
-    ADVANCED_PLOTS,
-    ALL_PLOTS,
-    URL_LOCAL_FILE,
-    URL_DISTANT_FILE,
-    PLOT_SCATTER,
-    PLOT_SCATTER_3D,
-    PLOT_BAR,
-    PLOT_HISTOGRAM,
-    PLOT_VIOLIN,
-    PLOT_BOX,
-    PLOT_DENSITY_HEATMAP,
-    PLOT_DENSITY_CONTOUR,
-    PLOT_LINE,
-    PLOT_PARALLEL_CATEGORIES,
-    PLOT_PARALLEL_COORDINATES,
-    PLOT_SCATTER_MATRIX,
-    PLOT_PCA_2D,
-    PLOT_PCA_3D,
-    PLOT_QDA_2D,
-    PLOT_LDA_2D,
-    PLOT_NCA,
-    PLOT_CORR_MATRIX,
-    PLOT_HAS_X,
-    PLOT_HAS_Y,
-    PLOT_HAS_Z,
-    PLOT_HAS_COLOR,
-    PLOT_HAS_TEXT,
-    PLOT_HAS_BAR_MODE,
-    PLOT_HAS_BINS,
-    PLOT_HAS_ANIM,
-    PLOT_HAS_FACET,
-    PLOT_HAS_LOG,
-    PLOT_HAS_MARGINAL,
-    PLOT_HAS_MARGINAL_XY,
-    PLOT_HAS_POINTS,
-    PLOT_HAS_SHAPE,
-    PLOT_HAS_SIZE,
-    PLOT_HAS_TREND_LINE,
-    PLOT_HAS_CUSTOM_HOVER_DATA,
-    PLOT_HAS_TARGET,
-    PLOT_HAS_IGNORE_COLUMNS,
-    PLOT_HAS_PROGRESS_DISPLAY,
-    PLOT_HAS_SOLVER,
-    PLOT_HAS_NCOMP,
-    PLOT_HAS_INIT,
-)
+import amp_consts
 from amp_functs import get_dataframe_from_url, format_csv_link, build_plot, get_plot_help
 
 
@@ -142,19 +92,22 @@ def customize_plot():
     if show_info:
         st.info(
             f"""
-            Select **{URL_LOCAL_FILE}** to load a file from your file system.  
-            Select **{URL_DISTANT_FILE}** to paste an URL of a distant CSV.  
+            Select **{amp_consts.URL_LOCAL_FILE}** to load a file from your file system.  
+            Select **{amp_consts.URL_DISTANT_FILE}** to paste an URL of a distant CSV.  
             The other options are CSVs that can be used to learn how to use the dashboard.
             """
         )
     selected_file = st.selectbox(
-        label="Source file: ", options=AVAILABLE_URLS, index=0, format_func=format_csv_link,
+        label="Source file: ",
+        options=amp_consts.AVAILABLE_URLS,
+        index=0,
+        format_func=format_csv_link,
     )
-    if selected_file == URL_LOCAL_FILE:
+    if selected_file == amp_consts.URL_LOCAL_FILE:
         selected_file = st.file_uploader(label="Select file to upload")
         if selected_file is None:
             return
-    elif selected_file == URL_DISTANT_FILE:
+    elif selected_file == amp_consts.URL_DISTANT_FILE:
         selected_file = st.text_input(label="Paste web URL", value="")
         if not (st.button(label="Download file", key="grab_file") and selected_file):
             return
@@ -333,7 +286,9 @@ def customize_plot():
 
     # Select type
     plot_type = qs.selectbox(
-        label="Plot type: ", options=ALL_PLOTS if show_advanced_plots else BASIC_PLOTS, index=0,
+        label="Plot type: ",
+        options=amp_consts.ALL_PLOTS if show_advanced_plots else amp_consts.BASIC_PLOTS,
+        index=0,
     )
     st.header(
         f"Step {step} - Plot {plot_type}{' customization (Widgets in sidebar)' if use_side_bar else ''}"
@@ -341,13 +296,15 @@ def customize_plot():
     step += 1
 
     st.write(get_plot_help(plot_type))
-    if plot_type in [PLOT_LDA_2D, PLOT_NCA]:
+    if plot_type in [amp_consts.PLOT_LDA_2D, amp_consts.PLOT_NCA]:
         qs.warning("If plotting fails, make sure that no variable is colinear with your target")
 
     plot_data_dict = {}
 
     # Select mode
-    is_anim = plot_type in PLOT_HAS_ANIM and qs.checkbox(label="Build animation", value=False)
+    is_anim = plot_type in amp_consts.PLOT_HAS_ANIM and qs.checkbox(
+        label="Build animation", value=False
+    )
     if is_anim:
         if show_info:
             qs.info(
@@ -367,19 +324,19 @@ def customize_plot():
             col for col in df.columns.to_list() if col.lower() in usual_time_columns
         ]
         if not time_columns:
-            time_columns = [PICK_ONE]
+            time_columns = [amp_consts.PICK_ONE]
         time_columns.extend(
             [col for col in df.columns.to_list() if col.lower() not in time_columns]
         )
         plot_data_dict["time_column"] = qs.selectbox(
             label="Date/time column: ", options=time_columns, index=0,
         )
-        if plot_data_dict["time_column"] != PICK_ONE:
+        if plot_data_dict["time_column"] != amp_consts.PICK_ONE:
             new_time_column = plot_data_dict["time_column"] + "_" + "pmgd"
         else:
             qs.warning("""Time column needed for animations.""")
             return
-        if plot_data_dict["time_column"] != PICK_ONE and (
+        if plot_data_dict["time_column"] != amp_consts.PICK_ONE and (
             plot_data_dict["time_column"] in usual_time_columns
             or qs.checkbox(
                 label="Convert to date?",
@@ -433,7 +390,7 @@ def customize_plot():
                 qs.error(
                     f"Unable to set {plot_data_dict['time_column']} as time reference column because {repr(e)}"
                 )
-                plot_data_dict["time_column"] = PICK_ONE
+                plot_data_dict["time_column"] = amp_consts.PICK_ONE
             else:
                 df = df.sort_values([plot_data_dict["time_column"]])
         else:
@@ -441,7 +398,9 @@ def customize_plot():
         plot_data_dict["time_column"] = new_time_column
         qs.info(f"Frames: {len(df[new_time_column].unique())}")
         plot_data_dict["animation_group"] = qs.selectbox(
-            label="Animation category group", options=[NONE_SELECTED] + cat_columns, index=0
+            label="Animation category group",
+            options=[amp_consts.NONE_SELECTED] + cat_columns,
+            index=0,
         )
         if show_info:
             qs.info(
@@ -455,41 +414,45 @@ def customize_plot():
     qs.subheader("Basic options")
 
     # Customize X axis
-    if plot_type in PLOT_HAS_X:
-        if plot_type in [PLOT_SCATTER, PLOT_LINE]:
-            x_columns = [PICK_ONE] + all_columns
-            y_columns = [PICK_ONE] + all_columns
-        elif plot_type in [PLOT_SCATTER_3D]:
-            x_columns = [PICK_ONE] + all_columns
-            y_columns = [PICK_ONE] + all_columns
-            z_columns = [PICK_ONE] + all_columns
-        elif plot_type in [PLOT_BAR]:
-            x_columns = [PICK_ONE] + cat_columns
-            y_columns = [PICK_ONE] + all_columns
-        elif plot_type in [PLOT_BOX, PLOT_VIOLIN]:
-            x_columns = [NONE_SELECTED] + cat_columns
-            y_columns = [PICK_ONE] + all_columns
-        elif plot_type == PLOT_HISTOGRAM:
-            x_columns = [PICK_ONE] + all_columns
-            y_columns = [PICK_ONE] + all_columns
-        elif plot_type in [PLOT_DENSITY_HEATMAP, PLOT_DENSITY_CONTOUR]:
-            x_columns = [PICK_ONE] + num_columns
-            y_columns = [PICK_ONE] + num_columns
+    if plot_type in amp_consts.PLOT_HAS_X:
+        if plot_type in [amp_consts.PLOT_SCATTER, amp_consts.PLOT_LINE]:
+            x_columns = [amp_consts.PICK_ONE] + all_columns
+            y_columns = [amp_consts.PICK_ONE] + all_columns
+        elif plot_type in [amp_consts.PLOT_SCATTER_3D]:
+            x_columns = [amp_consts.PICK_ONE] + all_columns
+            y_columns = [amp_consts.PICK_ONE] + all_columns
+            z_columns = [amp_consts.PICK_ONE] + all_columns
+        elif plot_type in [amp_consts.PLOT_BAR]:
+            x_columns = [amp_consts.PICK_ONE] + cat_columns
+            y_columns = [amp_consts.PICK_ONE] + all_columns
+        elif plot_type in [amp_consts.PLOT_BOX, amp_consts.PLOT_VIOLIN]:
+            x_columns = [amp_consts.NONE_SELECTED] + cat_columns
+            y_columns = [amp_consts.PICK_ONE] + all_columns
+        elif plot_type == amp_consts.PLOT_HISTOGRAM:
+            x_columns = [amp_consts.PICK_ONE] + all_columns
+            y_columns = [amp_consts.PICK_ONE] + all_columns
+        elif plot_type in [amp_consts.PLOT_DENSITY_HEATMAP, amp_consts.PLOT_DENSITY_CONTOUR]:
+            x_columns = [amp_consts.PICK_ONE] + num_columns
+            y_columns = [amp_consts.PICK_ONE] + num_columns
         plot_data_dict["x"] = qs.selectbox(label="X axis", options=x_columns, index=0,)
         if (
             show_advanced_settings
             and plot_data_dict["x"] in num_columns
             and plot_type
-            not in [PLOT_PARALLEL_CATEGORIES, PLOT_PARALLEL_COORDINATES, PLOT_SCATTER_MATRIX]
+            not in [
+                amp_consts.PLOT_PARALLEL_CATEGORIES,
+                amp_consts.PLOT_PARALLEL_COORDINATES,
+                amp_consts.PLOT_SCATTER_MATRIX,
+            ]
         ):
             plot_data_dict["log_x"] = qs.checkbox(label="Log X axis?")
         else:
             plot_data_dict["log_x"] = False
-        if plot_data_dict["x"] == PICK_ONE:
+        if plot_data_dict["x"] == amp_consts.PICK_ONE:
             qs.warning("""Please pic a column for the X AXIS.""")
             return
 
-    if plot_type == PLOT_HISTOGRAM:
+    if plot_type == amp_consts.PLOT_HISTOGRAM:
         hist_modes = ["count", "sum", "avg", "min", "max"]
         plot_data_dict["histfunc"] = qs.selectbox(
             label="Histogram function",
@@ -502,38 +465,42 @@ def customize_plot():
                 "max": "Maximum",
             }.get(x, "Unknown histogram mode"),
         )
-    elif plot_type in PLOT_HAS_Y:
+    elif plot_type in amp_consts.PLOT_HAS_Y:
         # Customize Y axis
         plot_data_dict["y"] = qs.selectbox(label="Y axis", options=y_columns, index=0)
         if (
             show_advanced_settings
             and plot_data_dict["y"] in num_columns
             and plot_type
-            not in [PLOT_PARALLEL_CATEGORIES, PLOT_PARALLEL_COORDINATES, PLOT_SCATTER_MATRIX]
+            not in [
+                amp_consts.PLOT_PARALLEL_CATEGORIES,
+                amp_consts.PLOT_PARALLEL_COORDINATES,
+                amp_consts.PLOT_SCATTER_MATRIX,
+            ]
         ):
             plot_data_dict["log_y"] = qs.checkbox(label="Log Y axis?")
         else:
             plot_data_dict["log_y"] = False
-        if plot_data_dict["y"] == PICK_ONE:
+        if plot_data_dict["y"] == amp_consts.PICK_ONE:
             qs.warning("""Please pic a column for the Y AXIS.""")
             return
 
-    if plot_type == PLOT_SCATTER_3D:
+    if plot_type == amp_consts.PLOT_SCATTER_3D:
         plot_data_dict["z"] = qs.selectbox(label="Z axis", options=z_columns, index=0,)
         if show_advanced_settings and plot_data_dict["z"] in num_columns:
             plot_data_dict["log_z"] = qs.checkbox(label="Log Z axis?")
         else:
             plot_data_dict["log_z"] = False
-        if plot_data_dict["z"] == PICK_ONE:
+        if plot_data_dict["z"] == amp_consts.PICK_ONE:
             qs.warning("""Please pic a column for the Z AXIS.""")
             return
 
     # Target for supervised machine learning
-    if plot_type in PLOT_HAS_TARGET:
+    if plot_type in amp_consts.PLOT_HAS_TARGET:
         plot_data_dict["target"] = qs.selectbox(
-            label="Target:", options=[PICK_ONE] + supervision_columns, index=0,
+            label="Target:", options=[amp_consts.PICK_ONE] + supervision_columns, index=0,
         )
-        if plot_data_dict["target"] == PICK_ONE:
+        if plot_data_dict["target"] == amp_consts.PICK_ONE:
             qs.warning("""Please select target for supervised machine learning.""")
             return
         elif (
@@ -543,21 +510,23 @@ def customize_plot():
             qs.info("Non discrete columns will be rounded")
 
     # Color column
-    if plot_type in PLOT_HAS_COLOR:
+    if plot_type in amp_consts.PLOT_HAS_COLOR:
         plot_data_dict["color"] = qs.selectbox(
             label="Use this column for color:",
-            options=[NONE_SELECTED] + all_columns,
+            options=[amp_consts.NONE_SELECTED] + all_columns,
             index=0
-            if plot_type not in PLOT_HAS_TARGET
+            if plot_type not in amp_consts.PLOT_HAS_TARGET
             else all_columns.index(plot_data_dict["target"]) + 1,
         )
 
     # Ignored columns
-    if plot_type in PLOT_HAS_IGNORE_COLUMNS:
+    if plot_type in amp_consts.PLOT_HAS_IGNORE_COLUMNS:
         plot_data_dict["ignore_columns"] = qs.multiselect(
             label="Ignore this columns when building the model:",
             options=all_columns,
-            default=[plot_data_dict["target"]] if plot_type in PLOT_HAS_TARGET else [],
+            default=[plot_data_dict["target"]]
+            if plot_type in amp_consts.PLOT_HAS_TARGET
+            else [],
         )
         if show_info:
             qs.info(
@@ -571,9 +540,9 @@ def customize_plot():
     if show_advanced_settings:
         qs.subheader("Advanced options:")
         # Common data
-        available_marginals = [NONE_SELECTED, "rug", "box", "violin", "histogram"]
+        available_marginals = [amp_consts.NONE_SELECTED, "rug", "box", "violin", "histogram"]
         # Solver selection
-        if plot_type in PLOT_HAS_SOLVER:
+        if plot_type in amp_consts.PLOT_HAS_SOLVER:
             solvers = ["svd", "eigen"]
             plot_data_dict["solver"] = qs.selectbox(
                 label="Solver",
@@ -585,11 +554,11 @@ def customize_plot():
                 }.get(x, "svd"),
             )
         # About NCA
-        if plot_type in PLOT_HAS_NCOMP:
+        if plot_type in amp_consts.PLOT_HAS_NCOMP:
             plot_data_dict["n_components"] = qs.number_input(
                 label="Number of components", min_value=2, max_value=len(num_columns), value=2
             )
-        if plot_type in PLOT_HAS_INIT:
+        if plot_type in amp_consts.PLOT_HAS_INIT:
             plot_data_dict["init"] = qs.selectbox(
                 label="Linear transformation init",
                 options=["auto", "pca", "lda", "identity", "random"],
@@ -635,30 +604,32 @@ def customize_plot():
                     """
                 )
         # Dot text
-        if plot_type in PLOT_HAS_TEXT:
+        if plot_type in amp_consts.PLOT_HAS_TEXT:
             plot_data_dict["text"] = qs.selectbox(
-                label="Text display column", options=[NONE_SELECTED] + cat_columns, index=0
+                label="Text display column",
+                options=[amp_consts.NONE_SELECTED] + cat_columns,
+                index=0,
             )
         # Dot size
-        if plot_type in PLOT_HAS_SIZE:
+        if plot_type in amp_consts.PLOT_HAS_SIZE:
             plot_data_dict["size"] = qs.selectbox(
                 label="Use this column to select what dot size represents:",
-                options=[NONE_SELECTED] + num_columns,
+                options=[amp_consts.NONE_SELECTED] + num_columns,
                 index=0,
             )
             plot_data_dict["size_max"] = qs.number_input(
                 label="Max dot size", min_value=11, max_value=100, value=60
             )
-        if plot_type in PLOT_HAS_SHAPE:
+        if plot_type in amp_consts.PLOT_HAS_SHAPE:
             plot_data_dict["symbol"] = qs.selectbox(
                 label="Select a column for the dot symbols",
-                options=[NONE_SELECTED] + cat_columns,
+                options=[amp_consts.NONE_SELECTED] + cat_columns,
                 index=0,
             )
-        if plot_type in PLOT_HAS_TREND_LINE:
+        if plot_type in amp_consts.PLOT_HAS_TREND_LINE:
             plot_data_dict["trendline"] = qs.selectbox(
                 label="Trend line mode",
-                options=[NONE_SELECTED, "ols", "lowess"],
+                options=[amp_consts.NONE_SELECTED, "ols", "lowess"],
                 format_func=lambda x: {
                     "ols": "Ordinary Least Squares ",
                     "lowess": "Locally Weighted Scatterplot Smoothing",
@@ -666,13 +637,13 @@ def customize_plot():
             )
 
         # Facet
-        if plot_type in PLOT_HAS_FACET:
+        if plot_type in amp_consts.PLOT_HAS_FACET:
             plot_data_dict["facet_col"] = qs.selectbox(
                 label="Use this column to split the plot in columns:",
-                options=[NONE_SELECTED] + cat_columns,
+                options=[amp_consts.NONE_SELECTED] + cat_columns,
                 index=0,
             )
-            if plot_data_dict["facet_col"] != NONE_SELECTED:
+            if plot_data_dict["facet_col"] != amp_consts.NONE_SELECTED:
                 plot_data_dict["facet_col_wrap"] = qs.number_input(
                     label="Wrap columns when more than x", min_value=1, max_value=20, value=4
                 )
@@ -680,11 +651,11 @@ def customize_plot():
                 plot_data_dict["facet_col_wrap"] = 4
             plot_data_dict["facet_row"] = qs.selectbox(
                 label="Use this column to split the plot in lines:",
-                options=[NONE_SELECTED] + cat_columns,
+                options=[amp_consts.NONE_SELECTED] + cat_columns,
                 index=0,
             )
         # Histogram specific parameters
-        if plot_type in PLOT_HAS_MARGINAL and is_anim:
+        if plot_type in amp_consts.PLOT_HAS_MARGINAL and is_anim:
             plot_data_dict["marginal"] = qs.selectbox(
                 label="Marginal", options=available_marginals, index=0
             )
@@ -696,11 +667,11 @@ def customize_plot():
                 ),
                 index=0,
             )
-        if plot_type in PLOT_HAS_BAR_MODE:
+        if plot_type in amp_consts.PLOT_HAS_BAR_MODE:
             plot_data_dict["barmode"] = qs.selectbox(
                 label="bar mode", options=["group", "overlay", "relative"], index=2
             )
-        if plot_type in PLOT_HAS_MARGINAL_XY and is_anim:
+        if plot_type in amp_consts.PLOT_HAS_MARGINAL_XY and is_anim:
             plot_data_dict["marginal_x"] = qs.selectbox(
                 label="Marginals for X axis", options=available_marginals, index=0
             )
@@ -708,7 +679,7 @@ def customize_plot():
                 label="Marginals for Y axis", options=available_marginals, index=0
             )
         # Box plots and histograms
-        if plot_type in PLOT_HAS_POINTS:
+        if plot_type in amp_consts.PLOT_HAS_POINTS:
             plot_data_dict["points"] = qs.selectbox(
                 label="Select which points are displayed",
                 options=["none", "outliers", "all"],
@@ -718,16 +689,16 @@ def customize_plot():
                 plot_data_dict["points"] if plot_data_dict["points"] != "none" else False
             )
         # Box plots
-        if plot_type == PLOT_BOX:
+        if plot_type == amp_consts.PLOT_BOX:
             plot_data_dict["notched"] = qs.checkbox(label="Use notches?", value=False)
         # Violin plots
-        if plot_type == PLOT_VIOLIN:
+        if plot_type == amp_consts.PLOT_VIOLIN:
             plot_data_dict["box"] = qs.checkbox(label="Show boxes", value=False)
             plot_data_dict["violinmode"] = qs.selectbox(
                 "Violin display mode", options=["group", "overlay"]
             )
         # Density heat map
-        if plot_type in PLOT_HAS_BINS:
+        if plot_type in amp_consts.PLOT_HAS_BINS:
             plot_data_dict["nbinsx"] = qs.number_input(
                 label="Number of bins in the X axis", min_value=1, max_value=1000, value=20
             )
@@ -735,13 +706,13 @@ def customize_plot():
                 label="Number of bins in the Y axis", min_value=1, max_value=1000, value=20
             )
         # Density contour map
-        if plot_type == PLOT_DENSITY_CONTOUR:
+        if plot_type == amp_consts.PLOT_DENSITY_CONTOUR:
             plot_data_dict["fill_contours"] = qs.checkbox(label="Fill contours", value=False)
         # PCA loadings
-        if plot_type == PLOT_PCA_2D:
+        if plot_type == amp_consts.PLOT_PCA_2D:
             plot_data_dict["show_loadings"] = qs.checkbox(label="Show loadings", value=False)
         # Correlation plot
-        if plot_type == PLOT_CORR_MATRIX:
+        if plot_type == amp_consts.PLOT_CORR_MATRIX:
             plot_data_dict["corr_method"] = qs.selectbox(
                 label="Correlation method",
                 options=["pearson", "kendall", "spearman"],
@@ -752,7 +723,7 @@ def customize_plot():
                 }.get(x),
             )
         # Matrix plot
-        if plot_type == PLOT_SCATTER_MATRIX:
+        if plot_type == amp_consts.PLOT_SCATTER_MATRIX:
             plot_data_dict["matrix_diag"] = qs.selectbox(
                 label="diagonal", options=["Nothing", "Histogram", "Scatter"], index=1,
             )
@@ -764,21 +735,21 @@ def customize_plot():
             )
 
         # Hover data
-        if plot_type in PLOT_HAS_CUSTOM_HOVER_DATA:
+        if plot_type in amp_consts.PLOT_HAS_CUSTOM_HOVER_DATA:
             plot_data_dict["hover_name"] = qs.selectbox(
-                label="Hover name:", options=[NONE_SELECTED] + cat_columns, index=0,
+                label="Hover name:", options=[amp_consts.NONE_SELECTED] + cat_columns, index=0,
             )
             plot_data_dict["hover_data"] = qs.multiselect(
                 label="Add columns to hover data", options=df.columns.to_list(), default=[],
             )
     else:
-        if plot_type == PLOT_SCATTER_MATRIX:
+        if plot_type == amp_consts.PLOT_SCATTER_MATRIX:
             plot_data_dict["matrix_diag"] = "Histogram"
             plot_data_dict["matrix_up"] = "Scatter"
             plot_data_dict["matrix_down"] = "Scatter"
-        if plot_type == PLOT_PCA_2D:
+        if plot_type == amp_consts.PLOT_PCA_2D:
             plot_data_dict["show_loadings"] = False
-        if plot_type == PLOT_CORR_MATRIX:
+        if plot_type == amp_consts.PLOT_CORR_MATRIX:
             plot_data_dict["corr_method"] = "pearson"
 
     if adv_mode:
@@ -820,7 +791,7 @@ def customize_plot():
             )
         return
 
-    if plot_type in PLOT_HAS_PROGRESS_DISPLAY:
+    if plot_type in amp_consts.PLOT_HAS_PROGRESS_DISPLAY:
         progress = st.progress(0)
 
         def update_progress(step, total):
@@ -828,6 +799,15 @@ def customize_plot():
 
     else:
         update_progress = None
+
+    if plot_type in amp_consts.PLOT_NEEDS_NA_DROP and df.isnull().values.any():
+        st.markdown("NA values found in will be removed:")
+        [
+            st.markdown(f"- {c} has {df[c].isnull().sum()} NA values")
+            for c in all_columns
+            if df[c].isnull().values.any()
+        ]
+        df = df.dropna(axis="index")
 
     fig_data = build_plot(
         is_anim=is_anim, plot_type=plot_type, df=df, progress=update_progress, **plot_data_dict,
@@ -881,9 +861,9 @@ def customize_plot():
                 and st.checkbox(
                     label=(
                         lambda x: {
-                            PLOT_PCA_2D: "Components details",
-                            PLOT_PCA_3D: "Components details",
-                            PLOT_NCA: "Linear transformation learned",
+                            amp_consts.PLOT_PCA_2D: "Components details",
+                            amp_consts.PLOT_PCA_3D: "Components details",
+                            amp_consts.PLOT_NCA: "Linear transformation learned",
                         }.get(x, "Error")
                     )(plot_type),
                     value=False,
