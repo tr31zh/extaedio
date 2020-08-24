@@ -1,1 +1,1 @@
-web: sh setup.sh && streamlit run sl_plot_me.py
+web: sh setup.sh && streamlit run extaedio.py
