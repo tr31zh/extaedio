@@ -55,7 +55,7 @@ def init_param(
 
     if ret == amp_consts.PICK_ONE:
         parent.warning(
-            f"Please pic a column for the {widget_params.get('label', 'previous option')}."
+            f"Please pic a column for the {widget_params.get('label', 'previous parameter')}."
         )
 
     if (show_help == "all") or ((show_help == "mandatory") and (ret == amp_consts.PICK_ONE)):
@@ -96,7 +96,7 @@ def customize_plot():
     )
 
     param_help_level = st.selectbox(
-        label="Show help related to plot options:",
+        label="Show help related to plot parameters:",
         options=["none", "mandatory", "all"],
         format_func=lambda x: {
             "none": "Never",
@@ -106,6 +106,11 @@ def customize_plot():
         index=1,
     )
     st.markdown("")
+
+    defer_render = st.checkbox(
+        label='Defer rendering - generate plot only when the "Render" button, only visible when the plot is ready, at the botton is pressed',
+        value=False,
+    )
 
     show_info = st.checkbox(
         label="Show information panels (blue panels with hints and tips).", value=False
@@ -119,7 +124,7 @@ def customize_plot():
             - Options to customize display
             - Option to enable data wrangling (filtering columns and rows)
             - Option to add advanced plots to list
-            - Option to add advanced customization to plots
+            - Option to add advanced parameters to plots
             """
         )
 
@@ -181,8 +186,7 @@ def customize_plot():
             If activated, this settings can quickly become overwhelming.  
             - **Show advanced plots.**: Expand the list of available plots.
             - **Show dataframe customization options**: Add widgets to sort, filter and clean the dataframe.  
-            - **Show plot customization advanced options**: Add widgets to further customize the plots.  
-            - **Defer rendering**: Only generate plot when user presses the render button.
+            - **Show plot customization advanced parameters**: Add widgets to further customize the plots.  
             Usefull if the rendering takes too long when changing a parameter.
             """
             )
@@ -191,8 +195,7 @@ def customize_plot():
         show_dw_options = st.checkbox(
             label="Show dataframe customization options - sort, filter, clean."
         )
-        show_advanced_settings = st.checkbox(label="Show plot advanced options", value=False)
-        defer_render = st.checkbox(label="Defer rendering", value=False)
+        show_advanced_settings = st.checkbox(label="Show plot advanced parameters", value=False)
 
         if show_dw_options:
             # Sorting
@@ -490,7 +493,7 @@ def customize_plot():
                 """
             )
 
-    qs.subheader("Basic options")
+    qs.subheader("Basic parameters")
 
     if plot_type in amp_consts.PLOT_HAS_X:
         if plot_type in [amp_consts.PLOT_SCATTER, amp_consts.PLOT_LINE]:
@@ -708,7 +711,7 @@ def customize_plot():
             overrides={},
         )
     if show_advanced_settings:
-        qs.subheader("Advanced options:")
+        qs.subheader("Advanced parameters:")
         # Common data
         available_marginals = [amp_consts.NONE_SELECTED, "rug", "box", "violin", "histogram"]
         # Solver selection
