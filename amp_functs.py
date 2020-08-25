@@ -69,7 +69,38 @@ def format_csv_link(url):
         return url
 
 
-def get_plot_help(plot_type) -> str:
+def get_plot_docstring(plot_type) -> str:
+    if plot_type == PLOT_SCATTER:
+        return px.scatter.__doc__
+    elif plot_type == PLOT_SCATTER_3D:
+        return px.scatter_3d.__doc__
+    elif plot_type == PLOT_LINE:
+        return px.line.__doc__
+    elif plot_type == PLOT_BAR:
+        return px.bar.__doc__
+    elif plot_type == PLOT_HISTOGRAM:
+        return px.histogram.__doc__
+    elif plot_type == PLOT_BOX:
+        return px.box.__doc__
+    elif plot_type == PLOT_VIOLIN:
+        return px.violin.__doc__
+    elif plot_type == PLOT_DENSITY_HEATMAP:
+        return px.density_heatmap.__doc__
+    elif plot_type == PLOT_DENSITY_CONTOUR:
+        return px.density_contour.__doc__
+    elif plot_type == PLOT_PARALLEL_CATEGORIES:
+        return px.parallel_categories.__doc__
+    elif plot_type == PLOT_PARALLEL_COORDINATES:
+        return px.parallel_coordinates.__doc__
+    elif plot_type == PLOT_SCATTER_MATRIX:
+        doc = "Plot a scatter mattrix for all selected columns"
+    else:
+        return px.scatter.__doc__
+
+    return doc
+
+
+def get_plot_help_digest(plot_type) -> str:
     if plot_type == PLOT_SCATTER:
         doc, _ = px.scatter.__doc__.split("\nParameters")
     elif plot_type == PLOT_SCATTER_3D:

@@ -10,7 +10,9 @@ Ex Taedio is available as an heroku app [here](https://extaedio.herokuapp.com/) 
 
 ### Prerequisites
 
-You need Python, at least version 3.6, installed on your computer.
+- Python, at least version 3.6, installed on your computer.
+- A navigator.
+- Some features, i.e. exporting plot as html, don't work on windows.
 
 ### Installing
 
@@ -23,6 +25,7 @@ You need Python, at least version 3.6, installed on your computer.
 
 ## Using
 
+- Show help related to plot options will show help extracted from plotly under each plot configuration widget according to the level selected.
 - Enable _Show information panels (blue panels with hints and tips)._ if in need of help.
 - Advanced functionality is hidden behind the _Advanced mode_ checkbox.
 - When advanced mode is active, data wrangling, advanced plots and advanced plot settings can be enabled.

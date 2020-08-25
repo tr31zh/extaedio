@@ -1,25 +1,67 @@
-import io
-import os
-
+from collections import defaultdict
+from datetime import datetime as dt
 import base64
 
 import streamlit as st
 import pandas as pd
 import numpy as np
 
-import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import plotly.figure_factory as ff
 import plotly.io as pio
 
-from sklearn import datasets
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
-from datetime import datetime as dt
 
 import amp_consts
-from amp_functs import get_dataframe_from_url, format_csv_link, build_plot, get_plot_help
+from amp_consts import PICK_ONE
+from amp_functs import (
+    get_dataframe_from_url,
+    format_csv_link,
+    build_plot,
+    get_plot_help_digest,
+    get_plot_docstring,
+)
+
+
+def print_param_help(parent, param_name, params_doc):
+    if isinstance(params_doc, str):
+        parent.markdown(params_doc)
+    else:
+        for k, v in params_doc.items():
+            p, *_ = k.split(":")
+            if p == param_name:
+                parent.markdown("".join(v))
+                break
+        else:
+            parent.warning(f"Missing doc for {param_name}")
+    parent.markdown("<hr>", unsafe_allow_html=True)
+
+
+def init_param(
+    parent,
+    widget_type: str,
+    param_name: str,
+    widget_params: dict,
+    show_help: bool,
+    params_doc: dict,
+    overrides: dict = {},
+):
+    if overrides and param_name in overrides:
+        ret = overrides[param_name]
+        parent.markdown(f"**{param_name}** <- {overrides[param_name]}")
+    elif widget_type:
+        f = getattr(parent, widget_type)
+        ret = None if f is None else f(**widget_params)
+    else:
+        ret = None
+
+    if ret == amp_consts.PICK_ONE:
+        parent.warning(
+            f"Please pic a column for the {widget_params.get('label', 'previous option')}."
+        )
+
+    if (show_help == "all") or ((show_help == "mandatory") and (ret == amp_consts.PICK_ONE)):
+        print_param_help(parent=parent, param_name=param_name, params_doc=params_doc)
+
+    return ret
 
 
 def _max_width_():
@@ -47,24 +89,39 @@ def customize_plot():
 
     st.title("Ex Taedio")
 
-    st.markdown("Welcome to Ex Taedio, a dashboard to help you generate plots from CSV files.")
-    st.markdown("- Click [here](https://github.com/tr31zh/ask_me_polotly) for help.")
-    st.markdown("- Click [here](https://github.com/tr31zh/ask_me_polotly) for the source code.")
+    st.markdown(
+        """Welcome to Ex Taedio, a dashboard to help you generate plots from CSV files.
+        Click [here](https://github.com/tr31zh/ask_me_polotly/blob/master/README.pdf) for help
+        and [here](https://github.com/tr31zh/ask_me_polotly) for the source code."""
+    )
+
+    param_help_level = st.selectbox(
+        label="Show help related to plot options:",
+        options=["none", "mandatory", "all"],
+        format_func=lambda x: {
+            "none": "Never",
+            "mandatory": "When waiting for non optional parameters (recommended)",
+            "all": "Always",
+        }.get(x, "all"),
+        index=1,
+    )
+    st.markdown("")
 
     show_info = st.checkbox(
         label="Show information panels (blue panels with hints and tips).", value=False
     )
 
     adv_mode = st.checkbox(label="Advanced mode", value=False)
-    st.info(
-        """
-        **Advanced mode** will add:
-        - Options to customize display
-        - Option to enable data wrangling (filtering columns and rows)
-        - Option to add advanced plots to list
-        - Option to add advanced customization to plots
-        """
-    )
+    if show_info:
+        st.info(
+            """
+            **Advanced mode** will add:
+            - Options to customize display
+            - Option to enable data wrangling (filtering columns and rows)
+            - Option to add advanced plots to list
+            - Option to add advanced customization to plots
+            """
+        )
 
     if adv_mode:
         st.header(f"Step {step} - Set display options")
@@ -131,7 +188,9 @@ def customize_plot():
             )
 
         show_advanced_plots = st.checkbox(label="Show advanced plots.", value=False)
-        show_dw_options = st.checkbox(label="Show dataframe customization options.")
+        show_dw_options = st.checkbox(
+            label="Show dataframe customization options - sort, filter, clean."
+        )
         show_advanced_settings = st.checkbox(label="Show plot advanced options", value=False)
         defer_render = st.checkbox(label="Defer rendering", value=False)
 
@@ -294,10 +353,18 @@ def customize_plot():
     )
     step += 1
 
-    st.write(get_plot_help(plot_type))
+    st.write(get_plot_help_digest(plot_type))
     if plot_type in [amp_consts.PLOT_LDA_2D, amp_consts.PLOT_NCA]:
         qs.warning("If plotting fails, make sure that no variable is colinear with your target")
 
+    params = get_plot_docstring(plot_type).split("\nParameters")[1].split("\n")[2:]
+    params_dict = defaultdict(list)
+    current_key = ""
+    for l in params:
+        if l.startswith("    "):
+            params_dict[current_key].append(l.replace("    ", " "))
+        else:
+            current_key = l
     plot_data_dict = {}
 
     # Select mode
@@ -327,13 +394,18 @@ def customize_plot():
         time_columns.extend(
             [col for col in df.columns.to_list() if col.lower() not in time_columns]
         )
-        plot_data_dict["time_column"] = qs.selectbox(
-            label="Date/time column: ", options=time_columns, index=0,
+        plot_data_dict["time_column"] = init_param(
+            parent=qs,
+            widget_type="selectbox",
+            param_name="time_column",
+            widget_params=dict(label="Date/time column: ", options=time_columns, index=0),
+            show_help=param_help_level,
+            params_doc="A column from the dataframe used as key to build frames",
+            overrides={},
         )
         if plot_data_dict["time_column"] != amp_consts.PICK_ONE:
             new_time_column = plot_data_dict["time_column"] + "_" + "pmgd"
         else:
-            qs.warning("""Time column needed for animations.""")
             return
         if plot_data_dict["time_column"] != amp_consts.PICK_ONE and (
             plot_data_dict["time_column"] in usual_time_columns
@@ -396,10 +468,18 @@ def customize_plot():
             df[new_time_column] = df[plot_data_dict["time_column"]]
         plot_data_dict["time_column"] = new_time_column
         qs.info(f"Frames: {len(df[new_time_column].unique())}")
-        plot_data_dict["animation_group"] = qs.selectbox(
-            label="Animation category group",
-            options=[amp_consts.NONE_SELECTED] + cat_columns,
-            index=0,
+        plot_data_dict["animation_group"] = init_param(
+            parent=qs,
+            widget_type="selectbox",
+            param_name="animation_group",
+            widget_params=dict(
+                label="Animation category group",
+                options=[amp_consts.NONE_SELECTED] + cat_columns,
+                index=0,
+            ),
+            show_help=param_help_level,
+            params_doc=params_dict,
+            overrides={},
         )
         if show_info:
             qs.info(
@@ -412,28 +492,61 @@ def customize_plot():
 
     qs.subheader("Basic options")
 
-    # Customize X axis
     if plot_type in amp_consts.PLOT_HAS_X:
         if plot_type in [amp_consts.PLOT_SCATTER, amp_consts.PLOT_LINE]:
             x_columns = [amp_consts.PICK_ONE] + all_columns
-            y_columns = [amp_consts.PICK_ONE] + all_columns
         elif plot_type in [amp_consts.PLOT_SCATTER_3D]:
             x_columns = [amp_consts.PICK_ONE] + all_columns
-            y_columns = [amp_consts.PICK_ONE] + all_columns
-            z_columns = [amp_consts.PICK_ONE] + all_columns
         elif plot_type in [amp_consts.PLOT_BAR]:
             x_columns = [amp_consts.PICK_ONE] + cat_columns
-            y_columns = [amp_consts.PICK_ONE] + all_columns
         elif plot_type in [amp_consts.PLOT_BOX, amp_consts.PLOT_VIOLIN]:
             x_columns = [amp_consts.NONE_SELECTED] + cat_columns
-            y_columns = [amp_consts.PICK_ONE] + all_columns
         elif plot_type == amp_consts.PLOT_HISTOGRAM:
             x_columns = [amp_consts.PICK_ONE] + all_columns
-            y_columns = [amp_consts.PICK_ONE] + all_columns
         elif plot_type in [amp_consts.PLOT_DENSITY_HEATMAP, amp_consts.PLOT_DENSITY_CONTOUR]:
             x_columns = [amp_consts.PICK_ONE] + num_columns
+        else:
+            x_columns = []
+    else:
+        x_columns = []
+
+    if plot_type in amp_consts.PLOT_HAS_Y:
+        if plot_type in [amp_consts.PLOT_SCATTER, amp_consts.PLOT_LINE]:
+            y_columns = [amp_consts.PICK_ONE] + all_columns
+        elif plot_type in [amp_consts.PLOT_SCATTER_3D]:
+            y_columns = [amp_consts.PICK_ONE] + all_columns
+        elif plot_type in [amp_consts.PLOT_BAR]:
+            y_columns = [amp_consts.PICK_ONE] + all_columns
+        elif plot_type in [amp_consts.PLOT_BOX, amp_consts.PLOT_VIOLIN]:
+            y_columns = [amp_consts.PICK_ONE] + all_columns
+        elif plot_type == amp_consts.PLOT_HISTOGRAM:
+            y_columns = [amp_consts.PICK_ONE] + all_columns
+        elif plot_type in [amp_consts.PLOT_DENSITY_HEATMAP, amp_consts.PLOT_DENSITY_CONTOUR]:
             y_columns = [amp_consts.PICK_ONE] + num_columns
-        plot_data_dict["x"] = qs.selectbox(label="X axis", options=x_columns, index=0,)
+        else:
+            y_columns = []
+    else:
+        y_columns = []
+
+    if plot_type in amp_consts.PLOT_HAS_Z:
+        if plot_type in [amp_consts.PLOT_SCATTER_3D]:
+            z_columns = [amp_consts.PICK_ONE] + all_columns
+        else:
+            z_columns = []
+    else:
+        z_columns = []
+
+    # Customize X axis
+    if plot_type in amp_consts.PLOT_HAS_X:
+        plot_data_dict["x"] = init_param(
+            parent=qs,
+            widget_type="selectbox",
+            param_name="x",
+            widget_params=dict(label="X axis", options=x_columns, index=0),
+            show_help=param_help_level,
+            params_doc=params_dict,
+            overrides={},
+        )
         if (
             show_advanced_settings
             and plot_data_dict["x"] in num_columns
@@ -444,29 +557,49 @@ def customize_plot():
                 amp_consts.PLOT_SCATTER_MATRIX,
             ]
         ):
-            plot_data_dict["log_x"] = qs.checkbox(label="Log X axis?")
-        else:
-            plot_data_dict["log_x"] = False
+            plot_data_dict["log_x"] = init_param(
+                parent=qs,
+                widget_type="checkbox",
+                param_name="log_x",
+                widget_params=dict(label="Log X axis?"),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
+            )
         if plot_data_dict["x"] == amp_consts.PICK_ONE:
-            qs.warning("""Please pic a column for the X AXIS.""")
             return
 
     if plot_type == amp_consts.PLOT_HISTOGRAM:
-        hist_modes = ["count", "sum", "avg", "min", "max"]
-        plot_data_dict["histfunc"] = qs.selectbox(
-            label="Histogram function",
-            options=hist_modes,
-            format_func=lambda x: {
-                "count": "Count",
-                "sum": "Sum",
-                "avg": "Average",
-                "min": "Minimum",
-                "max": "Maximum",
-            }.get(x, "Unknown histogram mode"),
+        plot_data_dict["histfunc"] = init_param(
+            parent=qs,
+            widget_type="selectbox",
+            param_name="histfunc",
+            widget_params=dict(
+                label="Histogram function",
+                options=["count", "sum", "avg", "min", "max"],
+                format_func=lambda x: {
+                    "count": "Count",
+                    "sum": "Sum",
+                    "avg": "Average",
+                    "min": "Minimum",
+                    "max": "Maximum",
+                }.get(x, "Unknown histogram mode"),
+            ),
+            show_help=param_help_level,
+            params_doc=params_dict,
+            overrides={},
         )
     elif plot_type in amp_consts.PLOT_HAS_Y:
         # Customize Y axis
-        plot_data_dict["y"] = qs.selectbox(label="Y axis", options=y_columns, index=0)
+        plot_data_dict["y"] = init_param(
+            parent=qs,
+            widget_type="selectbox",
+            param_name="y",
+            widget_params=dict(label="Y axis", options=y_columns, index=0),
+            show_help=param_help_level,
+            params_doc=params_dict,
+            overrides={},
+        )
         if (
             show_advanced_settings
             and plot_data_dict["y"] in num_columns
@@ -477,30 +610,57 @@ def customize_plot():
                 amp_consts.PLOT_SCATTER_MATRIX,
             ]
         ):
-            plot_data_dict["log_y"] = qs.checkbox(label="Log Y axis?")
-        else:
-            plot_data_dict["log_y"] = False
+            plot_data_dict["log_y"] = init_param(
+                parent=qs,
+                widget_type="checkbox",
+                param_name="log_y",
+                widget_params=dict(label="Log Y axis?"),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
+            )
         if plot_data_dict["y"] == amp_consts.PICK_ONE:
-            qs.warning("""Please pic a column for the Y AXIS.""")
             return
 
     if plot_type == amp_consts.PLOT_SCATTER_3D:
-        plot_data_dict["z"] = qs.selectbox(label="Z axis", options=z_columns, index=0,)
+        plot_data_dict["z"] = init_param(
+            parent=qs,
+            widget_type="selectbox",
+            param_name="z",
+            widget_params=dict(label="Z axis", options=z_columns, index=0),
+            show_help=param_help_level,
+            params_doc=params_dict,
+            overrides={},
+        )
         if show_advanced_settings and plot_data_dict["z"] in num_columns:
-            plot_data_dict["log_z"] = qs.checkbox(label="Log Z axis?")
+            plot_data_dict["log_z"] = init_param(
+                parent=qs,
+                widget_type="checkbox",
+                param_name="log_z",
+                widget_params=dict(label="Log Z axis?"),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
+            )
         else:
             plot_data_dict["log_z"] = False
         if plot_data_dict["z"] == amp_consts.PICK_ONE:
-            qs.warning("""Please pic a column for the Z AXIS.""")
             return
 
     # Target for supervised machine learning
     if plot_type in amp_consts.PLOT_HAS_TARGET:
-        plot_data_dict["target"] = qs.selectbox(
-            label="Target:", options=[amp_consts.PICK_ONE] + supervision_columns, index=0,
+        plot_data_dict["target"] = init_param(
+            parent=qs,
+            widget_type="selectbox",
+            param_name="target",
+            widget_params=dict(
+                label="ML target:", options=[amp_consts.PICK_ONE] + supervision_columns, index=0
+            ),
+            show_help=param_help_level,
+            params_doc=params_dict,
+            overrides={},
         )
         if plot_data_dict["target"] == amp_consts.PICK_ONE:
-            qs.warning("""Please select target for supervised machine learning.""")
             return
         elif (
             plot_data_dict["target"] in df.select_dtypes(include=[np.float]).columns.to_list()
@@ -510,61 +670,98 @@ def customize_plot():
 
     # Color column
     if plot_type in amp_consts.PLOT_HAS_COLOR:
-        plot_data_dict["color"] = qs.selectbox(
-            label="Use this column for color:",
-            options=[amp_consts.NONE_SELECTED] + all_columns,
-            index=0
-            if plot_type not in amp_consts.PLOT_HAS_TARGET
-            else all_columns.index(plot_data_dict["target"]) + 1,
+        plot_data_dict["color"] = init_param(
+            parent=qs,
+            widget_type="selectbox",
+            param_name="color",
+            widget_params=dict(
+                label="Use this column for color:",
+                options=[amp_consts.NONE_SELECTED] + all_columns,
+                index=0
+                if plot_type not in amp_consts.PLOT_HAS_TARGET
+                else all_columns.index(plot_data_dict["target"]) + 1,
+            ),
+            show_help=param_help_level,
+            params_doc=params_dict,
+            overrides={},
         )
 
     # Ignored columns
     if plot_type in amp_consts.PLOT_HAS_IGNORE_COLUMNS:
-        plot_data_dict["ignore_columns"] = qs.multiselect(
-            label="Ignore this columns when building the model:",
-            options=all_columns,
-            default=[plot_data_dict["target"]]
-            if plot_type in amp_consts.PLOT_HAS_TARGET
-            else [],
-        )
-        if show_info:
-            qs.info(
-                """
-                **Ignored columns** will be omitted when calculating LDA, 
+        plot_data_dict["ignore_columns"] = init_param(
+            parent=qs,
+            widget_type="multiselect",
+            param_name="ignore_columns",
+            widget_params=dict(
+                label="Ignore this columns when building the model:",
+                options=all_columns,
+                default=[plot_data_dict["target"]]
+                if plot_type in amp_consts.PLOT_HAS_TARGET
+                else [],
+            ),
+            show_help=param_help_level,
+            params_doc="""
+                This columns will be omitted when building the model, 
                 but available for display.  
                 Use this to avoid giving the answer to the question when building models.
-                """
-            )
-
+                """,
+            overrides={},
+        )
     if show_advanced_settings:
         qs.subheader("Advanced options:")
         # Common data
         available_marginals = [amp_consts.NONE_SELECTED, "rug", "box", "violin", "histogram"]
         # Solver selection
         if plot_type in amp_consts.PLOT_HAS_SOLVER:
-            solvers = ["svd", "eigen"]
-            plot_data_dict["solver"] = qs.selectbox(
-                label="Solver",
-                options=solvers,
-                index=0,
-                format_func=lambda x: {
-                    "svd": "Singular value decomposition",
-                    "eigen": "Eigenvalue decomposition",
-                }.get(x, "svd"),
+            plot_data_dict["solver"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="solver",
+                widget_params=dict(
+                    label="Solver",
+                    options=["svd", "eigen"],
+                    index=0,
+                    format_func=lambda x: {
+                        "svd": "Singular value decomposition",
+                        "eigen": "Eigenvalue decomposition",
+                    }.get(x, "svd"),
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
         # About NCA
         if plot_type in amp_consts.PLOT_HAS_NCOMP:
-            plot_data_dict["n_components"] = qs.number_input(
-                label="Number of components", min_value=2, max_value=len(num_columns), value=2
+            plot_data_dict["n_components"] = init_param(
+                parent=qs,
+                widget_type="number_input",
+                param_name="n_components",
+                widget_params=dict(
+                    label="Number of components",
+                    min_value=2,
+                    max_value=len(num_columns),
+                    value=2,
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
         if plot_type in amp_consts.PLOT_HAS_INIT:
-            plot_data_dict["init"] = qs.selectbox(
-                label="Linear transformation init",
-                options=["auto", "pca", "lda", "identity", "random"],
-                index=0,
+            plot_data_dict["init"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="init",
+                widget_params=dict(
+                    label="Linear transformation init",
+                    options=["auto", "pca", "lda", "identity", "random"],
+                    index=0,
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
             if plot_data_dict["init"] == "auto":
-                qs.info(
+                qs.markdown(
                     """
                     Depending on n_components, the most reasonable initialization will be 
                     chosen. If n_components <= n_classes we use ‘lda’, as it uses labels 
@@ -574,12 +771,12 @@ def customize_plot():
                     """
                 )
             elif plot_data_dict["init"] == "pca":
-                qs.info(
+                qs.markdown(
                     """n_components principal components of the inputs passed to 
                     fit will be used to initialize the transformation."""
                 )
             elif plot_data_dict["init"] == "lda":
-                qs.info(
+                qs.markdown(
                     """
                     min(n_components, n_classes) most discriminative components of
                     the inputs passed to fit will be used to initialize the transformation. 
@@ -587,7 +784,7 @@ def customize_plot():
                     """
                 )
             elif plot_data_dict["init"] == "identity":
-                qs.info(
+                qs.markdown(
                     """
                     If n_components is strictly smaller than the dimensionality 
                     of the inputs passed to 
@@ -595,151 +792,371 @@ def customize_plot():
                     """
                 )
             elif plot_data_dict["init"] == "random":
-                qs.info(
+                qs.markdown(
                     """
                     The initial transformation will be a random array of shape 
                     (n_components, n_features). 
                     Each value is sampled from the standard normal distribution.
                     """
                 )
+            qs.markdown("<hr>", unsafe_allow_html=True)
         # Dot text
         if plot_type in amp_consts.PLOT_HAS_TEXT:
-            plot_data_dict["text"] = qs.selectbox(
-                label="Text display column",
-                options=[amp_consts.NONE_SELECTED] + cat_columns,
-                index=0,
+            plot_data_dict["text"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="text",
+                widget_params=dict(
+                    label="Text display column",
+                    options=[amp_consts.NONE_SELECTED] + cat_columns,
+                    index=0,
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
         # Dot size
         if plot_type in amp_consts.PLOT_HAS_SIZE:
-            plot_data_dict["size"] = qs.selectbox(
-                label="Use this column to select what dot size represents:",
-                options=[amp_consts.NONE_SELECTED] + num_columns,
-                index=0,
+            plot_data_dict["size"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="size",
+                widget_params=dict(
+                    label="Use this column to select what dot size represents:",
+                    options=[amp_consts.NONE_SELECTED] + num_columns,
+                    index=0,
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
-            plot_data_dict["size_max"] = qs.number_input(
-                label="Max dot size", min_value=11, max_value=100, value=60
+            plot_data_dict["size_max"] = init_param(
+                parent=qs,
+                widget_type="number_input",
+                param_name="size_max",
+                widget_params=dict(label="Max dot size", min_value=11, max_value=100, value=60),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
         if plot_type in amp_consts.PLOT_HAS_SHAPE:
-            plot_data_dict["symbol"] = qs.selectbox(
-                label="Select a column for the dot symbols",
-                options=[amp_consts.NONE_SELECTED] + cat_columns,
-                index=0,
+            plot_data_dict["symbol"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="symbol",
+                widget_params=dict(
+                    label="Select a column for the dot symbols",
+                    options=[amp_consts.NONE_SELECTED] + cat_columns,
+                    index=0,
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
         if plot_type in amp_consts.PLOT_HAS_TREND_LINE:
-            plot_data_dict["trendline"] = qs.selectbox(
-                label="Trend line mode",
-                options=[amp_consts.NONE_SELECTED, "ols", "lowess"],
-                format_func=lambda x: {
-                    "ols": "Ordinary Least Squares ",
-                    "lowess": "Locally Weighted Scatterplot Smoothing",
-                }.get(x, x),
+            plot_data_dict["trendline"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="trendline",
+                widget_params=dict(
+                    label="Trend line mode",
+                    options=[amp_consts.NONE_SELECTED, "ols", "lowess"],
+                    format_func=lambda x: {
+                        "ols": "Ordinary Least Squares ",
+                        "lowess": "Locally Weighted Scatterplot Smoothing",
+                    }.get(x, x),
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
 
         # Facet
         if plot_type in amp_consts.PLOT_HAS_FACET:
-            plot_data_dict["facet_col"] = qs.selectbox(
-                label="Use this column to split the plot in columns:",
-                options=[amp_consts.NONE_SELECTED] + cat_columns,
-                index=0,
+            plot_data_dict["facet_col"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="facet_col",
+                widget_params=dict(
+                    label="Use this column to split the plot in columns:",
+                    options=[amp_consts.NONE_SELECTED] + cat_columns,
+                    index=0,
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
             if plot_data_dict["facet_col"] != amp_consts.NONE_SELECTED:
-                plot_data_dict["facet_col_wrap"] = qs.number_input(
-                    label="Wrap columns when more than x", min_value=1, max_value=20, value=4
+                plot_data_dict["facet_col_wrap"] = init_param(
+                    parent=qs,
+                    widget_type="number_input",
+                    param_name="facet_col_wrap",
+                    widget_params=dict(
+                        label="Wrap columns when more than x",
+                        min_value=1,
+                        max_value=20,
+                        value=4,
+                    ),
+                    show_help=param_help_level,
+                    params_doc=params_dict,
+                    overrides={},
                 )
             else:
                 plot_data_dict["facet_col_wrap"] = 4
-            plot_data_dict["facet_row"] = qs.selectbox(
-                label="Use this column to split the plot in lines:",
-                options=[amp_consts.NONE_SELECTED] + cat_columns,
-                index=0,
+            plot_data_dict["facet_row"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="facet_row",
+                widget_params=dict(
+                    label="Use this column to split the plot in lines:",
+                    options=[amp_consts.NONE_SELECTED] + cat_columns,
+                    index=0,
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
         # Histogram specific parameters
         if plot_type in amp_consts.PLOT_HAS_MARGINAL and is_anim:
-            plot_data_dict["marginal"] = qs.selectbox(
-                label="Marginal", options=available_marginals, index=0
+            plot_data_dict["marginal"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="marginal",
+                widget_params=dict(label="Marginal", options=available_marginals, index=0),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
-            plot_data_dict["orientation"] = qs.selectbox(
-                label="orientation",
-                options=["v", "h"],
-                format_func=lambda x: {"v": "vertical", "h": "horizontal"}.get(
-                    x, "unknown value"
+            plot_data_dict["orientation"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="orientation",
+                widget_params=dict(
+                    label="orientation",
+                    options=["v", "h"],
+                    format_func=lambda x: {"v": "vertical", "h": "horizontal"}.get(
+                        x, "unknown value"
+                    ),
+                    index=0,
                 ),
-                index=0,
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
         if plot_type in amp_consts.PLOT_HAS_BAR_MODE:
-            plot_data_dict["barmode"] = qs.selectbox(
-                label="bar mode", options=["group", "overlay", "relative"], index=2
+            plot_data_dict["barmode"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="barmode",
+                widget_params=dict(
+                    label="bar mode", options=["group", "overlay", "relative"], index=2
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
         if plot_type in amp_consts.PLOT_HAS_MARGINAL_XY and is_anim:
-            plot_data_dict["marginal_x"] = qs.selectbox(
-                label="Marginals for X axis", options=available_marginals, index=0
+            plot_data_dict["marginal_x"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="marginal_x",
+                widget_params=dict(
+                    label="Marginals for X axis", options=available_marginals, index=0
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
-            plot_data_dict["marginal_y"] = qs.selectbox(
-                label="Marginals for Y axis", options=available_marginals, index=0
+            plot_data_dict["marginal_y"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="marginal_y",
+                widget_params=dict(
+                    label="Marginals for Y axis", options=available_marginals, index=0
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
         # Box plots and histograms
         if plot_type in amp_consts.PLOT_HAS_POINTS:
-            plot_data_dict["points"] = qs.selectbox(
-                label="Select which points are displayed",
-                options=["none", "outliers", "all"],
-                index=1,
+            plot_data_dict["points"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="points",
+                widget_params=dict(
+                    label="Select which points are displayed",
+                    options=["none", "outliers", "suspectedoutliers", "all"],
+                    index=1,
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
             plot_data_dict["points"] = (
                 plot_data_dict["points"] if plot_data_dict["points"] != "none" else False
             )
         # Box plots
         if plot_type == amp_consts.PLOT_BOX:
-            plot_data_dict["notched"] = qs.checkbox(label="Use notches?", value=False)
+            plot_data_dict["notched"] = init_param(
+                parent=qs,
+                widget_type="checkbox",
+                param_name="notched",
+                widget_params=dict(label="Use notches?", value=False),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
+            )
         # Violin plots
         if plot_type == amp_consts.PLOT_VIOLIN:
-            plot_data_dict["box"] = qs.checkbox(label="Show boxes", value=False)
-            plot_data_dict["violinmode"] = qs.selectbox(
-                "Violin display mode", options=["group", "overlay"]
+            plot_data_dict["box"] = init_param(
+                parent=qs,
+                widget_type="checkbox",
+                param_name="box",
+                widget_params=dict(label="Show boxes", value=False),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
+            )
+            plot_data_dict["violinmode"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="violinmode",
+                widget_params=dict(label="Violin display mode", options=["group", "overlay"]),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
         # Density heat map
         if plot_type in amp_consts.PLOT_HAS_BINS:
-            plot_data_dict["nbinsx"] = qs.number_input(
-                label="Number of bins in the X axis", min_value=1, max_value=1000, value=20
+            plot_data_dict["nbinsx"] = init_param(
+                parent=qs,
+                widget_type="number_input",
+                param_name="nbinsx",
+                widget_params=dict(
+                    label="Number of bins in the X axis", min_value=1, max_value=1000, value=20
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
-            plot_data_dict["nbinsy"] = qs.number_input(
-                label="Number of bins in the Y axis", min_value=1, max_value=1000, value=20
+            plot_data_dict["nbinsy"] = init_param(
+                parent=qs,
+                widget_type="number_input",
+                param_name="nbinsy",
+                widget_params=dict(
+                    label="Number of bins in the Y axis", min_value=1, max_value=1000, value=20
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
         # Density contour map
         if plot_type == amp_consts.PLOT_DENSITY_CONTOUR:
-            plot_data_dict["fill_contours"] = qs.checkbox(label="Fill contours", value=False)
+            plot_data_dict["fill_contours"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="fill_contours",
+                widget_params=dict(label="Fill contours", value=False),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
+            )
         # PCA loadings
         if plot_type == amp_consts.PLOT_PCA_2D:
-            plot_data_dict["show_loadings"] = qs.checkbox(label="Show loadings", value=False)
+            plot_data_dict["show_loadings"] = init_param(
+                parent=qs,
+                widget_type="checkbox",
+                param_name="show_loadings",
+                widget_params=dict(label="Show loadings", value=False),
+                show_help=param_help_level,
+                params_doc="Display PCA loadings for each attribute",
+                overrides={},
+            )
         # Correlation plot
         if plot_type == amp_consts.PLOT_CORR_MATRIX:
-            plot_data_dict["corr_method"] = qs.selectbox(
-                label="Correlation method",
-                options=["pearson", "kendall", "spearman"],
-                format_func=lambda x: {
-                    "pearson": "pearson : standard correlation coefficient",
-                    "kendall": "kendall : Kendall Tau correlation coefficient",
-                    "spearman": "spearman : Spearman rank correlation",
-                }.get(x),
+            plot_data_dict["corr_method"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="corr_method",
+                widget_params=dict(
+                    label="Correlation method",
+                    options=["pearson", "kendall", "spearman"],
+                    format_func=lambda x: {
+                        "pearson": "pearson : standard correlation coefficient",
+                        "kendall": "kendall : Kendall Tau correlation coefficient",
+                        "spearman": "spearman : Spearman rank correlation",
+                    }.get(x),
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
         # Matrix plot
         if plot_type == amp_consts.PLOT_SCATTER_MATRIX:
-            plot_data_dict["matrix_diag"] = qs.selectbox(
-                label="diagonal", options=["Nothing", "Histogram", "Scatter"], index=1,
+            plot_data_dict["matrix_diag"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="matrix_diag",
+                widget_params=dict(
+                    label="diagonal", options=["Nothing", "Histogram", "Scatter"], index=1
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
-            plot_data_dict["matrix_up"] = qs.selectbox(
-                label="Upper triangle", options=["Nothing", "Scatter", "2D histogram"], index=1,
+            plot_data_dict["matrix_up"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="matrix_up",
+                widget_params=dict(
+                    label="Upper triangle",
+                    options=["Nothing", "Scatter", "2D histogram"],
+                    index=1,
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
-            plot_data_dict["matrix_down"] = qs.selectbox(
-                label="Lower triangle", options=["Nothing", "Scatter", "2D histogram"], index=1,
+            plot_data_dict["matrix_down"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="matrix_down",
+                widget_params=dict(
+                    label="Lower triangle",
+                    options=["Nothing", "Scatter", "2D histogram"],
+                    index=1,
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
 
         # Hover data
         if plot_type in amp_consts.PLOT_HAS_CUSTOM_HOVER_DATA:
-            plot_data_dict["hover_name"] = qs.selectbox(
-                label="Hover name:", options=[amp_consts.NONE_SELECTED] + cat_columns, index=0,
+            plot_data_dict["hover_name"] = init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="hover_name",
+                widget_params=dict(
+                    label="Hover name:",
+                    options=[amp_consts.NONE_SELECTED] + cat_columns,
+                    index=0,
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
-            plot_data_dict["hover_data"] = qs.multiselect(
-                label="Add columns to hover data", options=df.columns.to_list(), default=[],
+            plot_data_dict["hover_data"] = init_param(
+                parent=qs,
+                widget_type="multiselect",
+                param_name="hover_data",
+                widget_params=dict(
+                    label="Add columns to hover data", options=df.columns.to_list(), default=[]
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
     else:
         if plot_type == amp_consts.PLOT_SCATTER_MATRIX:
@@ -753,30 +1170,46 @@ def customize_plot():
 
     if adv_mode:
         plot_data_dict["height"] = int(
-            qs.selectbox(
-                label="Plot height in pixels",
-                options=[
-                    "400",
-                    "600",
-                    "700",
-                    "800",
-                    "900",
-                    "1000",
-                    "1200",
-                    "1400",
-                    "1600",
-                    "1800",
-                    "2000",
-                ],
-                index=4,
+            init_param(
+                parent=qs,
+                widget_type="selectbox",
+                param_name="height",
+                widget_params=dict(
+                    label="Plot height in pixels",
+                    options=[
+                        "400",
+                        "600",
+                        "700",
+                        "800",
+                        "900",
+                        "1000",
+                        "1200",
+                        "1400",
+                        "1600",
+                        "1800",
+                        "2000",
+                    ],
+                    index=4,
+                ),
+                show_help=param_help_level,
+                params_doc=params_dict,
+                overrides={},
             )
         )
         # Template
         available_templates = list(pio.templates.keys())
-        plot_data_dict["template"] = qs.selectbox(
-            label="Plot template (theme): ",
-            options=available_templates,
-            index=available_templates.index(pio.templates.default),
+        plot_data_dict["template"] = init_param(
+            parent=qs,
+            widget_type="selectbox",
+            param_name="template",
+            widget_params=dict(
+                label="Plot template (theme): ",
+                options=available_templates,
+                index=available_templates.index(pio.templates.default),
+            ),
+            show_help=param_help_level,
+            params_doc=params_dict,
+            overrides={},
         )
     else:
         plot_data_dict["height"] = 900
