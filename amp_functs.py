@@ -92,8 +92,6 @@ def get_plot_docstring(plot_type) -> str:
         return px.parallel_categories.__doc__
     elif plot_type == PLOT_PARALLEL_COORDINATES:
         return px.parallel_coordinates.__doc__
-    elif plot_type == PLOT_SCATTER_MATRIX:
-        doc = "Plot a scatter mattrix for all selected columns"
     else:
         return px.scatter.__doc__
 
@@ -235,20 +233,24 @@ def get_dataframe_from_url(url):
     elif url == URL_ELECTION:
         return px.data.election()
     elif isinstance(url, str):
-        return pd.read_csv(url)
+        try:
+            return pd.read_csv(url)
+        except:
+            return None
     else:
         return None
 
 
 def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
 
-    for k, v in kwargs.items():
+    params = dict(**kwargs)
+    for k, v in params.items():
         if v == NONE_SELECTED:
-            kwargs[k] = filter_none(kwargs[k])
+            params[k] = filter_none(params[k])
     num_columns = df.select_dtypes(include=[np.number]).columns.to_list()
 
     if is_anim:
-        time_column = kwargs.pop("time_column", "")
+        time_column = params.pop("time_column", "")
         if (
             time_column
             in df.select_dtypes(
@@ -259,7 +261,7 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
             afc = "time_step"
         else:
             afc = time_column
-        kwargs["animation_frame"] = afc
+        params["animation_frame"] = afc
         if plot_type not in [
             PLOT_PCA_3D,
             PLOT_PCA_2D,
@@ -267,26 +269,15 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
             PLOT_QDA_2D,
             PLOT_NCA,
         ]:
-            x = kwargs.get("x")
-            kwargs["range_x"] = None if x not in num_columns else [df[x].min(), df[x].max()]
-            y = kwargs.get("y")
-            kwargs["range_y"] = None if y not in num_columns else [df[y].min(), df[y].max()]
+            x = params.get("x")
+            params["range_x"] = None if x not in num_columns else [df[x].min(), df[x].max()]
+            y = params.get("y")
+            params["range_y"] = None if y not in num_columns else [df[y].min(), df[y].max()]
             if plot_type == PLOT_SCATTER_3D:
-                z = kwargs.get("z")
-                kwargs["range_z"] = None if z not in num_columns else [df[z].min(), df[z].max()]
+                z = params.get("z")
+                params["range_z"] = None if z not in num_columns else [df[z].min(), df[z].max()]
 
-    # Color categorization
-    # color_column = kwargs.get("color", None)
-    # if (
-    #     color_column is not None
-    #     and color_column in df.select_dtypes(include=[np.number]).columns.to_list()
-    #     and len(df[color_column].unique()) < 12
-    # ):
-    #     cat_clr_name = f"{color_column}_as_cat"
-    #     df[cat_clr_name] = df[color_column].astype("category")
-    #     kwargs["color"] = cat_clr_name
-
-    kwargs["data_frame"] = df
+    params["data_frame"] = df
 
     fig = None
     model_data = None
@@ -294,32 +285,32 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
     class_names = None
 
     if plot_type == PLOT_SCATTER:
-        fig = px.scatter(**kwargs)
+        fig = px.scatter(**params)
     elif plot_type == PLOT_SCATTER_3D:
-        fig = px.scatter_3d(**kwargs)
+        fig = px.scatter_3d(**params)
     elif plot_type == PLOT_LINE:
-        fig = px.line(**kwargs)
+        fig = px.line(**params)
     elif plot_type == PLOT_BAR:
-        fig = px.bar(**kwargs)
+        fig = px.bar(**params)
     elif plot_type == PLOT_HISTOGRAM:
-        if "orientation" in kwargs and kwargs.get("orientation") == "h":
-            kwargs["x"], kwargs["y"] = None, kwargs["x"]
-        fig = px.histogram(**kwargs)
+        if "orientation" in params and params.get("orientation") == "h":
+            params["x"], params["y"] = None, params["x"]
+        fig = px.histogram(**params)
     elif plot_type == PLOT_BOX:
-        fig = px.box(**kwargs)
+        fig = px.box(**params)
     elif plot_type == PLOT_VIOLIN:
-        fig = px.violin(**kwargs)
+        fig = px.violin(**params)
     elif plot_type == PLOT_DENSITY_HEATMAP:
-        fig = px.density_heatmap(**kwargs)
+        fig = px.density_heatmap(**params)
     elif plot_type == PLOT_DENSITY_CONTOUR:
-        fc = kwargs.pop("fill_contours") is True
-        fig = px.density_contour(**kwargs)
+        fc = params.pop("fill_contours") is True
+        fig = px.density_contour(**params)
         if fc:
             fig.update_traces(contours_coloring="fill", contours_showlabels=True)
     elif plot_type == PLOT_PARALLEL_CATEGORIES:
-        fig = px.parallel_categories(**kwargs)
+        fig = px.parallel_categories(**params)
     elif plot_type == PLOT_PARALLEL_COORDINATES:
-        fig = px.parallel_coordinates(**kwargs)
+        fig = px.parallel_coordinates(**params)
     elif plot_type == PLOT_SCATTER_MATRIX:
         fig = make_subplots(
             rows=len(num_columns),
@@ -327,9 +318,9 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
             shared_xaxes=True,
             row_titles=num_columns,
         )
-        color_column = kwargs.get("color")
+        color_column = params.get("color")
         if color_column is not None:
-            template_colors = pio.templates[kwargs.get("template")].layout["colorway"]
+            template_colors = pio.templates[params.get("template")].layout["colorway"]
             if template_colors is None:
                 template_colors = pio.templates[pio.templates.default].layout["colorway"]
             color_count = len(df[color_column].unique())
@@ -345,9 +336,9 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
         legend_added = False
         step = 0
         total = len(num_columns) ** 2
-        matrix_diag = kwargs["matrix_diag"]
-        matrix_up = kwargs["matrix_up"]
-        matrix_down = kwargs["matrix_down"]
+        matrix_diag = params["matrix_diag"]
+        matrix_up = params["matrix_up"]
+        matrix_down = params["matrix_down"]
         for i, c in enumerate(num_columns):
             for j, l in enumerate(num_columns):
                 progress(step, total)
@@ -420,7 +411,7 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
         fig.update_layout(barmode="stack")
     elif plot_type in [PLOT_PCA_2D, PLOT_PCA_3D]:
         X = df.loc[:, num_columns]
-        ignored_columns = kwargs.pop("ignore_columns", [])
+        ignored_columns = params.pop("ignore_columns", [])
         if ignored_columns:
             X = X.drop(
                 list(set(ignored_columns).intersection(set(X.columns.to_list()))), axis=1
@@ -437,22 +428,22 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
         y = x_new[:, 1]
         df[pc1_lbl] = x * (1.0 / (x.max() - x.min()))
         df[pc2_lbl] = y * (1.0 / (y.max() - y.min()))
-        kwargs["x"] = pc1_lbl
-        kwargs["y"] = pc2_lbl
+        params["x"] = pc1_lbl
+        params["y"] = pc2_lbl
         if is_anim:
-            kwargs["range_x"] = [-1, 1]
-            kwargs["range_y"] = [-1, 1]
+            params["range_x"] = [-1, 1]
+            params["range_y"] = [-1, 1]
         if plot_type in [PLOT_PCA_3D]:
             z = x_new[:, 2]
             pc3_lbl = f"PC3 ({model_data.explained_variance_ratio_[2] * 100:.2f}%)"
             df[pc3_lbl] = z * (1.0 / (z.max() - z.min()))
-            kwargs["z"] = pc3_lbl
+            params["z"] = pc3_lbl
             if is_anim:
-                kwargs["range_z"] = [-1, 1]
-            fig = px.scatter_3d(**kwargs)
+                params["range_z"] = [-1, 1]
+            fig = px.scatter_3d(**params)
         else:
-            sl = kwargs.pop("show_loadings") is True
-            fig = px.scatter(**kwargs)
+            sl = params.pop("show_loadings") is True
+            fig = px.scatter(**params)
             if sl:
                 coeff = np.transpose(model_data.components_[0:2, :])
                 for i in range(coeff.shape[0]):
@@ -477,24 +468,24 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
                 )
     elif plot_type in [PLOT_LDA_2D, PLOT_QDA_2D]:
         X = df.loc[:, num_columns]
-        ignored_columns = kwargs.pop("ignore_columns", [])
+        ignored_columns = params.pop("ignore_columns", [])
         if ignored_columns:
             X = X.drop(
                 list(set(ignored_columns).intersection(set(X.columns.to_list()))), axis=1
             )
         column_names = X.columns.to_list()
-        if kwargs["target"] in df.select_dtypes(include=["object"]).columns.to_list():
-            t = df[kwargs["target"]].astype("category").cat.codes
-        elif kwargs["target"] in df.select_dtypes(include=[np.float]).columns.to_list():
-            t = df[kwargs["target"]].astype("int")
+        if params["target"] in df.select_dtypes(include=["object"]).columns.to_list():
+            t = df[params["target"]].astype("category").cat.codes
+        elif params["target"] in df.select_dtypes(include=[np.float]).columns.to_list():
+            t = df[params["target"]].astype("int")
         else:
-            t = df[kwargs["target"]]
-        class_names = df[kwargs["target"]].unique()
+            t = df[params["target"]]
+        class_names = df[params["target"]].unique()
         scaler = StandardScaler()
         scaler.fit(X)
         X = scaler.transform(X)
         if plot_type == PLOT_LDA_2D:
-            model_data = LinearDiscriminantAnalysis(solver=kwargs.pop("solver", "svd"))
+            model_data = LinearDiscriminantAnalysis(solver=params.pop("solver", "svd"))
         elif plot_type == PLOT_QDA_2D:
             model_data = QuadraticDiscriminantAnalysis(store_covariance=True)
         x_new = model_data.fit(X, y=t).transform(X)
@@ -504,61 +495,58 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
         y = x_new[:, 1]
         df[pc1_lbl] = x * (1.0 / (x.max() - x.min()))
         df[pc2_lbl] = y * (1.0 / (y.max() - y.min()))
-        kwargs["x"] = pc1_lbl
-        kwargs["y"] = pc2_lbl
+        params["x"] = pc1_lbl
+        params["y"] = pc2_lbl
         if is_anim:
-            kwargs["range_x"] = [-1, 1]
-            kwargs["range_y"] = [-1, 1]
-        kwargs.pop("target")
-        fig = px.scatter(**kwargs)
+            params["range_x"] = [-1, 1]
+            params["range_y"] = [-1, 1]
+        params.pop("target")
+        fig = px.scatter(**params)
     elif plot_type in [PLOT_NCA]:
         X = df.loc[:, num_columns]
-        ignored_columns = kwargs.pop("ignore_columns", [])
+        ignored_columns = params.pop("ignore_columns", [])
         if ignored_columns:
             X = X.drop(
                 list(set(ignored_columns).intersection(set(X.columns.to_list()))), axis=1
             )
         column_names = X.columns.to_list()
-        if kwargs["target"] in df.select_dtypes(include=["object"]).columns.to_list():
-            t = df[kwargs["target"]].astype("category").cat.codes
-        elif kwargs["target"] in df.select_dtypes(include=[np.float]).columns.to_list():
-            t = df[kwargs["target"]].astype("int")
+        if params["target"] in df.select_dtypes(include=["object"]).columns.to_list():
+            t = df[params["target"]].astype("category").cat.codes
+        elif params["target"] in df.select_dtypes(include=[np.float]).columns.to_list():
+            t = df[params["target"]].astype("int")
         else:
-            t = df[kwargs["target"]]
-        class_names = df[kwargs["target"]].unique()
+            t = df[params["target"]]
+        class_names = df[params["target"]].unique()
         scaler = StandardScaler()
         scaler.fit(X)
         X = scaler.transform(X)
         model_data = NeighborhoodComponentsAnalysis(
-            init=kwargs.pop("init", "auto"),
-            n_components=min(len(column_names), kwargs.pop("n_components", 2)),
+            init=params.pop("init", "auto"),
+            n_components=min(len(column_names), params.pop("n_components", 2)),
         )
         x_new = model_data.fit(X, y=t).transform(X)
         df["x_nca"] = x_new[:, 0]
         df["y_nca"] = x_new[:, 1]
-        kwargs["x"] = "x_nca"
-        kwargs["y"] = "y_nca"
+        params["x"] = "x_nca"
+        params["y"] = "y_nca"
         if is_anim:
-            kwargs["range_x"] = [-1, 1]
-            kwargs["range_y"] = [-1, 1]
-        kwargs.pop("target")
-        fig = px.scatter(**kwargs)
+            params["range_x"] = [-1, 1]
+            params["range_y"] = [-1, 1]
+        params.pop("target")
+        fig = px.scatter(**params)
     elif plot_type == PLOT_CORR_MATRIX:
         fig = px.imshow(
-            df[num_columns].corr(method=kwargs.get("corr_method")).values,
+            df[num_columns].corr(method=params.get("corr_method")).values,
             x=num_columns,
             y=num_columns,
         )
     else:
         fig = None
 
-    if fig is None:
-        print("No fig")
-
     if fig is not None:
         fig.update_layout(
-            height=kwargs["height"],
-            template=kwargs["template"],
+            height=params["height"],
+            template=params["template"],
             legend={"traceorder": "normal"},
         )
 

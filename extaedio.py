@@ -1,6 +1,8 @@
 from collections import defaultdict
 from datetime import datetime as dt
 import base64
+import json
+import datetime
 
 import streamlit as st
 import pandas as pd
@@ -8,60 +10,65 @@ import numpy as np
 
 import plotly.graph_objects as go
 import plotly.io as pio
+from streamlit import dataframe
 
 
 import amp_consts
-from amp_consts import PICK_ONE
+import amp_st_functs
 from amp_functs import (
-    get_dataframe_from_url,
-    format_csv_link,
     build_plot,
     get_plot_help_digest,
     get_plot_docstring,
 )
 
 
-def print_param_help(parent, param_name, params_doc):
-    if isinstance(params_doc, str):
-        parent.markdown(params_doc)
-    else:
-        for k, v in params_doc.items():
-            p, *_ = k.split(":")
-            if p == param_name:
-                parent.markdown("".join(v))
-                break
+class ParamInitializer(object):
+    def __init__(self, parent, params_doc, overrides, show_help) -> None:
+        self._parent = parent
+        self._params_doc = params_doc
+        self._overrides = overrides
+        self._show_help = show_help
+
+    def __call__(self, param_name, widget_params, widget_type="selectbox", doc_override=None):
+        if self._overrides:
+            if param_name in self._overrides:
+                self._parent.markdown(f"**{param_name}** <- {self._overrides[param_name]}")
+                ret = self._overrides[param_name]
+            else:
+                return None
+        elif widget_type:
+            f = getattr(self._parent, widget_type)
+            ret = None if f is None else f(**widget_params)
         else:
-            parent.warning(f"Missing doc for {param_name}")
-    parent.markdown("<hr>", unsafe_allow_html=True)
+            ret = None
 
+        if ret == amp_consts.PICK_ONE:
+            self._parent.warning(
+                f"Please pic a column for the {widget_params.get('label', 'previous parameter')}."
+            )
 
-def init_param(
-    parent,
-    widget_type: str,
-    param_name: str,
-    widget_params: dict,
-    show_help: bool,
-    params_doc: dict,
-    overrides: dict = {},
-):
-    if overrides and param_name in overrides:
-        ret = overrides[param_name]
-        parent.markdown(f"**{param_name}** <- {overrides[param_name]}")
-    elif widget_type:
-        f = getattr(parent, widget_type)
-        ret = None if f is None else f(**widget_params)
-    else:
-        ret = None
+        if (self._show_help == "all") or (
+            (self._show_help == "mandatory") and (ret == amp_consts.PICK_ONE)
+        ):
+            self.print_help(
+                param_name=param_name,
+                params_doc=doc_override if doc_override is not None else self._params_doc,
+            )
 
-    if ret == amp_consts.PICK_ONE:
-        parent.warning(
-            f"Please pic a column for the {widget_params.get('label', 'previous parameter')}."
-        )
+        return ret
 
-    if (show_help == "all") or ((show_help == "mandatory") and (ret == amp_consts.PICK_ONE)):
-        print_param_help(parent=parent, param_name=param_name, params_doc=params_doc)
-
-    return ret
+    def print_help(self, param_name, params_doc):
+        if isinstance(params_doc, str):
+            self._parent.markdown(params_doc)
+        else:
+            for k, v in params_doc.items():
+                p, *_ = k.split(":")
+                if p == param_name:
+                    self._parent.markdown("".join(v))
+                    break
+            else:
+                self._parent.warning(f"Missing doc for {param_name}")
+        self._parent.markdown("___")
 
 
 def _max_width_():
@@ -79,8 +86,31 @@ def _max_width_():
 
 
 @st.cache
-def get_df_from_url(url):
-    return get_dataframe_from_url(url)
+def wrangle_the_data(df, url, dw_options):
+
+    # Sort
+    if dw_options["sort_columns"]:
+        df = df.sort_values(dw_options["sort_columns"], ascending=not dw_options["invert_sort"])
+
+    # Filter columns
+    df = df[dw_options["kept_columns"]]
+
+    # Filter rows
+    if len(dw_options["filters"]) > 0:
+        for k, v in dw_options["filters"].items():
+            df = df[df[k].isin(v)]
+
+    # Bin columns
+    if len(dw_options["binners"]) > 0:
+        for k, v in dw_options["binners"].items():
+            df[k] = pd.cut(df[k], v)
+
+    # Clean
+    if dw_options["remove_duplicates"] is True:
+        df = df.drop_duplicates()
+    if dw_options["remove_na"] is True:
+        df = df.dropna(axis="index")
+    return df
 
 
 def customize_plot():
@@ -89,11 +119,25 @@ def customize_plot():
 
     st.title("Ex Taedio")
 
-    st.markdown(
-        """Welcome to Ex Taedio, a dashboard to help you generate plots from CSV files.
-        Click [here](https://github.com/tr31zh/ask_me_polotly/blob/master/README.pdf) for help
-        and [here](https://github.com/tr31zh/ask_me_polotly) for the source code."""
+    st.markdown("Welcome to Ex Taedio, a dashboard to help you generate plots from CSV files.")
+
+    reporting_mode = st.checkbox(label="Switch to report mode", value=False)
+    st.info(
+        """
+        **About report mode:**  Report mode allows you to reproduce a plot made 
+        by somebody else by loading a JSON configuration file that you got from another user.
+        """
     )
+    if reporting_mode:
+        _max_width_()
+        report_path = st.file_uploader(
+            label="Select JSON file containing plot parameters and options"
+        )
+        if report_path is None:
+            return
+        report = json.loads(report_path.getvalue())
+    else:
+        report = None
 
     param_help_level = st.selectbox(
         label="Show help related to plot parameters:",
@@ -105,260 +149,240 @@ def customize_plot():
         }.get(x, "all"),
         index=1,
     )
-    st.markdown("")
 
-    defer_render = st.checkbox(
-        label='Defer rendering - generate plot only when the "Render" button, only visible when the plot is ready, at the botton is pressed',
-        value=False,
-    )
+    if not reporting_mode:
+        st.markdown("")
 
-    show_info = st.checkbox(
-        label="Show information panels (blue panels with hints and tips).", value=False
-    )
-
-    adv_mode = st.checkbox(label="Advanced mode", value=False)
-    if show_info:
-        st.info(
-            """
-            **Advanced mode** will add:
-            - Options to customize display
-            - Option to enable data wrangling (filtering columns and rows)
-            - Option to add advanced plots to list
-            - Option to add advanced parameters to plots
-            """
+        defer_render = st.checkbox(
+            label="""
+            Defer rendering - generate plot only when the "Render" button, 
+            only visible when the plot is ready, at the botton is pressed
+            """,
+            value=False,
         )
 
-    if adv_mode:
-        st.header(f"Step {step} - Set display options")
-        step += 1
+        show_info = st.checkbox(
+            label="Show information panels (blue panels with hints and tips).", value=False
+        )
 
+        adv_mode = st.checkbox(label="Advanced mode", value=False)
         if show_info:
             st.info(
                 """
-                - **Plot settings to side bar**:Put the plot setttings in the sidebar instead 
-                of with all the other settings (Recommended).  
-                - **Force wide display**: Set the main UI to occupy all the available space,
-                can also be set from the settings. This overrides the settings if checked.
+                **Advanced mode** will add:
+                - Options to customize display
+                - Option to enable data wrangling (filtering columns and rows)
+                - Option to add advanced plots to list
+                - Option to add advanced parameters to plots
                 """
             )
-        use_side_bar = st.checkbox(label="Plot settings to side bar", value=True)
-        if st.checkbox(label="Force wide display", value=True,):
+
+        if adv_mode:
+            st.header(f"Step {step} - Set display options")
+            step += 1
+
+            if show_info:
+                st.info(
+                    """
+                    - **Plot settings to side bar**:Put the plot setttings in the sidebar instead 
+                    of with all the other settings (Recommended).  
+                    - **Force wide display**: Set the main UI to occupy all the available space,
+                    can also be set from the settings. This overrides the settings if checked.
+                    """
+                )
+            use_side_bar = st.checkbox(label="Plot settings to side bar", value=True)
+            if st.checkbox(label="Force wide display", value=True,):
+                _max_width_()
+        else:
+            use_side_bar = True
             _max_width_()
-    else:
-        use_side_bar = True
-        _max_width_()
-
-    st.header(f"Step {step} - Load dataframe in CSV format")
-    step += 1
-    if show_info:
-        st.info(
-            f"""
-            Select **{amp_consts.URL_LOCAL_FILE}** to load a file from your file system.  
-            Select **{amp_consts.URL_DISTANT_FILE}** to paste an URL of a distant CSV.  
-            The other options are CSVs that can be used to learn how to use the dashboard.
-            """
-        )
-    selected_file = st.selectbox(
-        label="Source file: ",
-        options=amp_consts.AVAILABLE_URLS,
-        index=0,
-        format_func=format_csv_link,
-    )
-    if selected_file == amp_consts.URL_LOCAL_FILE:
-        selected_file = st.file_uploader(label="Select file to upload")
-        if selected_file is None:
-            return
-    elif selected_file == amp_consts.URL_DISTANT_FILE:
-        selected_file = st.text_input(label="Paste web URL", value="")
-        if not (st.button(label="Download file", key="grab_file") and selected_file):
-            return
-    df_loaded = get_df_from_url(url=selected_file)
-    if df_loaded is None:
-        return
-    df = df_loaded.copy().reset_index(drop=True)
-
-    if adv_mode:
-        st.header(f"Step {step} - Set advanced settings")
+        df, selected_file = amp_st_functs.load_dataframe(step=step, show_info=show_info)
         step += 1
-        if show_info:
-            st.info(
+        if df is None:
+            return
+
+        dw_options = {}
+
+        if adv_mode:
+            st.header(f"Step {step} - Set advanced settings")
+            step += 1
+            if show_info:
+                st.info(
+                    """
+                If activated, this settings can quickly become overwhelming.  
+                - **Show advanced plots.**: Expand the list of available plots.
+                - **Show dataframe customization options**: Add widgets to sort, filter and clean the dataframe.  
+                - **Show plot customization advanced parameters**: Add widgets to further customize the plots.  
+                Usefull if the rendering takes too long when changing a parameter.
                 """
-            If activated, this settings can quickly become overwhelming.  
-            - **Show advanced plots.**: Expand the list of available plots.
-            - **Show dataframe customization options**: Add widgets to sort, filter and clean the dataframe.  
-            - **Show plot customization advanced parameters**: Add widgets to further customize the plots.  
-            Usefull if the rendering takes too long when changing a parameter.
-            """
+                )
+
+            show_advanced_plots = st.checkbox(label="Show advanced plots.", value=False)
+            show_dw_options = st.checkbox(
+                label="Show dataframe customization options - sort, filter, clean."
+            )
+            show_advanced_settings = st.checkbox(
+                label="Show plot advanced parameters", value=False
             )
 
-        show_advanced_plots = st.checkbox(label="Show advanced plots.", value=False)
-        show_dw_options = st.checkbox(
-            label="Show dataframe customization options - sort, filter, clean."
+            if show_dw_options:
+                st.header(f"Step {step} - Data wrangling")
+                st.subheader("Source dataframe")
+                st.markdown("dataframe first rows")
+                line_display_count = st.number_input(
+                    label="Lines to display", min_value=5, max_value=1000, value=5
+                )
+                st.dataframe(df.head(line_display_count))
+                st.markdown("Data frame numerical columns description")
+                st.dataframe(df.describe())
+                st.markdown("Dataframe's column types")
+                st.write(df.dtypes)
+
+                st.subheader(f"Sort")
+                if show_info:
+                    st.info(
+                        """
+                    Select columns to sort the dataframe, if multiple columns are selected,
+                    sort will be applied in the displayed order.
+                    """
+                    )
+                dw_options["sort_columns"] = st.multiselect(
+                    label="Sort by", options=df.columns.to_list()
+                )
+                dw_options["invert_sort"] = st.checkbox(label="Reverse sort?", value=False)
+
+                st.subheader("Filter columns")
+                dw_options["kept_columns"] = st.multiselect(
+                    label="Columns to keep",
+                    options=df.columns.to_list(),
+                    default=df.columns.to_list(),
+                )
+
+                st.subheader("Filter rows")
+                if show_info:
+                    st.info(
+                        """Select which columns will be filtered by values.  
+                        Only date and string columns can be filtered at the moment"""
+                    )
+                filter_columns = st.multiselect(
+                    label="Select which columns you want to use to filter the rows:",
+                    options=df.select_dtypes(include=["object", "datetime"]).columns.to_list(),
+                    default=None,
+                )
+                if filter_columns and show_info:
+                    st.info(
+                        """For each selected column select all the values that will be included.
+                        Less rows means faster dashboard"""
+                    )
+                dw_options["filters"] = {}
+                for column in filter_columns:
+                    st.subheader(f"{column}: ")
+                    select_all = st.checkbox(label=f"{column} Select all:")
+                    elements = list(df[column].unique())
+                    dw_options["filters"][column] = st.multiselect(
+                        label=f"Select which {column} to include",
+                        options=elements,
+                        default=None if not select_all else elements,
+                    )
+
+                st.subheader("Bin numerical columns")
+                if show_info:
+                    st.info(
+                        """Select which columns will be binned.  
+                        Numeric columns only"""
+                    )
+                bin_columns = st.multiselect(
+                    label="Select which columns you want replace by bins:",
+                    options=df.select_dtypes(include=[np.number]).columns.to_list(),
+                    default=None,
+                )
+                if bin_columns and show_info:
+                    st.info("""For each selected column select the bin value""")
+                dw_options["binners"] = {}
+                for column in bin_columns:
+                    st.subheader(f"{column}: ")
+                    dw_options["binners"][column] = st.number_input(
+                        label="Bin count:",
+                        min_value=1,
+                        max_value=len(df[column].unique()),
+                        value=10,
+                    )
+
+                st.subheader("Clean")
+                if show_info:
+                    st.info(
+                        "Some plots like PCA won't work if NA values are present in the dataframe"
+                    )
+                dw_options["remove_na"] = st.checkbox(
+                    label="Remove rows with NA values", value=False
+                )
+                dw_options["remove_duplicates"] = st.checkbox(
+                    label="Remove duplicates", value=False
+                )
+
+                df = wrangle_the_data(df=df, url=selected_file, dw_options=dw_options)
+
+                df = df.reset_index(drop=True)
+
+                st.subheader("Transformed dataframe")
+                st.markdown("dataframe first rows")
+                st.dataframe(df.head(line_display_count))
+                st.markdown("Data frame numerical columns description")
+                st.dataframe(df.describe())
+                st.markdown("Dataframe's column types")
+                st.write(df.dtypes)
+        else:
+            show_advanced_settings = False
+            defer_render = False
+            show_advanced_plots = False
+
+        qs = st.sidebar if use_side_bar else st
+        if use_side_bar:
+            pass
+        else:
+            st.header(f"Step {step} - Plot customization")
+            step += 1
+
+        qs.subheader("Plot selection")
+
+        # Select type
+        plot_type = qs.selectbox(
+            label="Plot type: ",
+            options=amp_consts.ALL_PLOTS if show_advanced_plots else amp_consts.BASIC_PLOTS,
+            index=0,
         )
-        show_advanced_settings = st.checkbox(label="Show plot advanced parameters", value=False)
+        st.header(
+            f"Step {step} - Plot {plot_type}{' customization (Widgets in sidebar)' if use_side_bar else ''}"
+        )
+        step += 1
 
-        if show_dw_options:
-            # Sorting
-            st.header(f"Step {step} - Sort columns")
-            step += 1
-            if show_info:
-                st.info(
-                    """
-                Select columns to sort the dataframe, if multiple columns are selected,
-                sort will be applied in the displayed order.
-                """
-                )
-            sort_columns = st.multiselect(label="Sort by", options=df.columns.to_list())
-            invert_sort = st.checkbox(label="Reverse sort?", value=False)
-            if sort_columns:
-                df = df.sort_values(sort_columns, ascending=not invert_sort)
-            # Filter
-            st.header(f"Step {step} - Filter rows")
-            step += 1
-            if show_info:
-                st.info("Some options to modify the dataframe")
-
-            st.subheader("Selected data frame")
-            if show_info:
-                st.info("Displays n lines of the original dataframe")
-            line_display_count = st.number_input(
-                label="Lines to display", min_value=5, max_value=1000, value=5
+        st.write(get_plot_help_digest(plot_type))
+        if plot_type in [amp_consts.PLOT_LDA_2D, amp_consts.PLOT_NCA]:
+            qs.warning(
+                "If plotting fails, make sure that no variable is colinear with your target"
             )
-            st.dataframe(df.head(line_display_count))
+        param_overrides = {}
 
-            st.subheader("Dataframe description")
-            if show_info:
-                st.info(
-                    """
-                    Display info about the dataframe's numerical 
-                    columns and types associated to all columns
-                    """
-                )
-            st.dataframe(df.describe())
-            st.write(df.dtypes)
-
-            st.subheader("Select columns to keep")
-            if show_info:
-                st.info(
-                    """
-                    Remove all columns that will not be needed, 
-                    the lower the number of columns the faster the dashboard will run
-                    """
-                )
-            kept_columns = st.multiselect(
-                label="Columns to keep",
-                options=df.columns.to_list(),
-                default=df.columns.to_list(),
-            )
-            df = df[kept_columns]
-
-            st.subheader("Filter rows")
-            if show_info:
-                st.info(
-                    """Select which columns will be filtered by values.  
-                    Only date and string columns can be filtered at the moment"""
-                )
-            filter_columns = st.multiselect(
-                label="Select which columns you want to use to filter the rows:",
-                options=df.select_dtypes(include=["object", "datetime"]).columns.to_list(),
-                default=None,
-            )
-            if filter_columns and show_info:
-                st.info(
-                    """For each selected column select all the values that will be included.
-                    Less rows means faster dashboard"""
-                )
-            filters = {}
-            for column in filter_columns:
-                st.subheader(f"{column}: ")
-                select_all = st.checkbox(label=f"{column} Select all:")
-                elements = list(df[column].unique())
-                filters[column] = st.multiselect(
-                    label=f"Select which {column} to include",
-                    options=elements,
-                    default=None if not select_all else elements,
-                )
-            if len(filters) > 0:
-                for k, v in filters.items():
-                    df = df[df[k].isin(v)]
-
-            st.subheader("Bin columns")
-            if show_info:
-                st.info(
-                    """Select which columns will be binned.  
-                    Numeric columns only"""
-                )
-            bin_columns = st.multiselect(
-                label="Select which columns you want replace by bins:",
-                options=df.select_dtypes(include=[np.number]).columns.to_list(),
-                default=None,
-            )
-            if bin_columns and show_info:
-                st.info("""For each selected column select the bin value""")
-            binners = {}
-            for column in bin_columns:
-                st.subheader(f"{column}: ")
-                binners[column] = st.number_input(
-                    label="Bin count:",
-                    min_value=1,
-                    max_value=len(df[column].unique()),
-                    value=10,
-                )
-            if len(binners) > 0:
-                for k, v in binners.items():
-                    df[k] = pd.cut(df[k], v)
-
-            st.subheader("Clean up")
-            if st.checkbox(label="Remove duplicates", value=False):
-                df = df.drop_duplicates()
-            if show_info:
-                st.info(
-                    "Some plots like PCA won't work if NA values are present in the dataframe"
-                )
-            if st.checkbox(label="Remove rows with NA values", value=False):
-                df = df.dropna(axis="index")
-
-            df = df.reset_index(drop=True)
-
-            # Preview dataframe
-            st.subheader("filtered data frame numeric data description and column types")
-            if show_info:
-                st.info("Display info about the filtered dataframe's numerical ")
-            st.dataframe(df.describe())
-            st.write(df.dtypes)
     else:
-        show_advanced_settings = False
+        if "dataframe" in report:
+            df = pd.DataFrame.from_dict(report.get("dataframe", {}))
+            st.info("Got df from report")
+            selected_file = None
+            dw_options = {}
+        else:
+            st.error("Missing dataframe")
+            return None
+        qs = st.sidebar
+        plot_type = report.get("plot", amp_consts.PLOT_SCATTER)
+        show_info = False
+        show_advanced_settings = True
+        param_overrides = report.get("params", {})
+        adv_mode = True
         defer_render = False
-        show_advanced_plots = False
-
-    qs = st.sidebar if use_side_bar else st
-    if use_side_bar:
-        pass
-    else:
-        st.header(f"Step {step} - Plot customization")
-        step += 1
-
-    num_columns = df.select_dtypes(include=[np.number]).columns.to_list()
-    cat_columns = df.select_dtypes(include=["object", "datetime"]).columns.to_list()
-    supervision_columns = df.select_dtypes(include=["object", "number"]).columns.to_list()
-    all_columns = df.columns.to_list()
-
-    qs.subheader("Plot selection")
-
-    # Select type
-    plot_type = qs.selectbox(
-        label="Plot type: ",
-        options=amp_consts.ALL_PLOTS if show_advanced_plots else amp_consts.BASIC_PLOTS,
-        index=0,
-    )
-    st.header(
-        f"Step {step} - Plot {plot_type}{' customization (Widgets in sidebar)' if use_side_bar else ''}"
-    )
-    step += 1
-
-    st.write(get_plot_help_digest(plot_type))
-    if plot_type in [amp_consts.PLOT_LDA_2D, amp_consts.PLOT_NCA]:
-        qs.warning("If plotting fails, make sure that no variable is colinear with your target")
+        comment = report.get("comment", "")
+        if comment:
+            st.subheader("A word from the creator")
+            st.markdown(comment)
 
     params = get_plot_docstring(plot_type).split("\nParameters")[1].split("\n")[2:]
     params_dict = defaultdict(list)
@@ -370,130 +394,37 @@ def customize_plot():
             current_key = l
     plot_data_dict = {}
 
-    # Select mode
-    is_anim = plot_type in amp_consts.PLOT_HAS_ANIM and qs.checkbox(
-        label="Build animation", value=False
+    param_initializer = ParamInitializer(
+        parent=qs, params_doc=params_dict, overrides=param_overrides, show_help=param_help_level
     )
-    if is_anim:
-        if show_info:
-            qs.info(
-                """Animation will be rendered when the **render** 
-                button bellow the plot title is pressed
-                """
+
+    # Select mode
+    if report is None:
+        is_anim = plot_type in amp_consts.PLOT_HAS_ANIM and qs.checkbox(
+            label="Build animation", value=False
+        )
+        if is_anim:
+            amp_st_functs.set_anim_data(
+                df=df,
+                show_info=show_info,
+                plot_data_dict=plot_data_dict,
+                param_initializer=param_initializer,
+                qs=qs,
             )
-        usual_time_columns = [
-            "date",
-            "date_time",
-            "datetime",
-            "timestamp",
-            "time",
-            "daterep",
-        ]
-        time_columns = [
-            col for col in df.columns.to_list() if col.lower() in usual_time_columns
-        ]
-        if not time_columns:
-            time_columns = [amp_consts.PICK_ONE]
-        time_columns.extend(
-            [col for col in df.columns.to_list() if col.lower() not in time_columns]
-        )
-        plot_data_dict["time_column"] = init_param(
-            parent=qs,
-            widget_type="selectbox",
-            param_name="time_column",
-            widget_params=dict(label="Date/time column: ", options=time_columns, index=0),
-            show_help=param_help_level,
-            params_doc="A column from the dataframe used as key to build frames",
-            overrides={},
-        )
-        if plot_data_dict["time_column"] != amp_consts.PICK_ONE:
-            new_time_column = plot_data_dict["time_column"] + "_" + "pmgd"
-        else:
-            return
-        if plot_data_dict["time_column"] != amp_consts.PICK_ONE and (
-            plot_data_dict["time_column"] in usual_time_columns
-            or qs.checkbox(
-                label="Convert to date?",
-                value=plot_data_dict["time_column"] in usual_time_columns,
-            )
-        ):
-            try:
-                cf_columns = [c.casefold() for c in df.columns.to_list()]
-                if (
-                    (plot_data_dict["time_column"].lower() in ["year", "month", "day"])
-                    and (len(set(("year", "month", "day")).intersection(set(cf_columns))) > 0)
-                    and qs.checkbox(label='Merge "year", "month", "day" columns?')
-                ):
-                    src_columns = [c for c in df.columns.to_list()]
-                    if "year".casefold() in cf_columns:
-                        date_series = df[
-                            src_columns[cf_columns.index("year".casefold())]
-                        ].astype("str")
-                    else:
-                        date_series = dt.now().strftime("%Y")
-                    if "month".casefold() in cf_columns:
-                        date_series = (
-                            date_series
-                            + "-"
-                            + df[src_columns[cf_columns.index("month".casefold())]].astype(
-                                "str"
-                            )
-                        )
-                    else:
-                        date_series = date_series + "-01"
-                    if "day".casefold() in cf_columns:
-                        date_series = (
-                            date_series
-                            + "-"
-                            + df[src_columns[cf_columns.index("day".casefold())]].astype("str")
-                        )
-                    else:
-                        date_series = date_series + "-01"
-                    df[new_time_column] = pd.to_datetime(date_series)
-                else:
-                    try:
-                        df[new_time_column] = pd.to_datetime(df[plot_data_dict["time_column"]])
-                    except Exception as e:
-                        qs.warning(
-                            "Failed to convert column to time, switching to category mode."
-                        )
-                        df[new_time_column] = (
-                            df[plot_data_dict["time_column"]].astype("category").cat.codes
-                        )
-            except Exception as e:
-                qs.error(
-                    f"Unable to set {plot_data_dict['time_column']} as time reference column because {repr(e)}"
-                )
-                plot_data_dict["time_column"] = amp_consts.PICK_ONE
-            else:
-                df = df.sort_values([plot_data_dict["time_column"]])
-        else:
-            df[new_time_column] = df[plot_data_dict["time_column"]]
-        plot_data_dict["time_column"] = new_time_column
-        qs.info(f"Frames: {len(df[new_time_column].unique())}")
-        plot_data_dict["animation_group"] = init_param(
-            parent=qs,
-            widget_type="selectbox",
-            param_name="animation_group",
-            widget_params=dict(
-                label="Animation category group",
-                options=[amp_consts.NONE_SELECTED] + cat_columns,
-                index=0,
-            ),
-            show_help=param_help_level,
-            params_doc=params_dict,
-            overrides={},
-        )
-        if show_info:
-            qs.info(
-                """
-                Select the main column of your dataframe as the category group.  
-                For example if using *gapminder* select country.  
-                If no column is selected the animation may jitter.
-                """
+    else:
+        is_anim = report.get("is_anim", False)
+        if is_anim:
+            plot_data_dict["time_column"] = param_initializer(
+                widget_params={},
+                param_name="time_column",
+                doc_override="A column from the dataframe used as key to build frames",
             )
 
     qs.subheader("Basic parameters")
+    num_columns = df.select_dtypes(include=[np.number]).columns.to_list()
+    cat_columns = df.select_dtypes(include=["object", "datetime"]).columns.to_list()
+    supervision_columns = df.select_dtypes(include=["object", "number"]).columns.to_list()
+    all_columns = df.columns.to_list()
 
     if plot_type in amp_consts.PLOT_HAS_X:
         if plot_type in [amp_consts.PLOT_SCATTER, amp_consts.PLOT_LINE]:
@@ -541,14 +472,8 @@ def customize_plot():
 
     # Customize X axis
     if plot_type in amp_consts.PLOT_HAS_X:
-        plot_data_dict["x"] = init_param(
-            parent=qs,
-            widget_type="selectbox",
-            param_name="x",
-            widget_params=dict(label="X axis", options=x_columns, index=0),
-            show_help=param_help_level,
-            params_doc=params_dict,
-            overrides={},
+        plot_data_dict["x"] = param_initializer(
+            param_name="x", widget_params=dict(label="X axis", options=x_columns, index=0),
         )
         if (
             show_advanced_settings
@@ -560,22 +485,16 @@ def customize_plot():
                 amp_consts.PLOT_SCATTER_MATRIX,
             ]
         ):
-            plot_data_dict["log_x"] = init_param(
-                parent=qs,
+            plot_data_dict["log_x"] = param_initializer(
                 widget_type="checkbox",
                 param_name="log_x",
                 widget_params=dict(label="Log X axis?"),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
         if plot_data_dict["x"] == amp_consts.PICK_ONE:
             return
 
     if plot_type == amp_consts.PLOT_HISTOGRAM:
-        plot_data_dict["histfunc"] = init_param(
-            parent=qs,
-            widget_type="selectbox",
+        plot_data_dict["histfunc"] = param_initializer(
             param_name="histfunc",
             widget_params=dict(
                 label="Histogram function",
@@ -588,20 +507,11 @@ def customize_plot():
                     "max": "Maximum",
                 }.get(x, "Unknown histogram mode"),
             ),
-            show_help=param_help_level,
-            params_doc=params_dict,
-            overrides={},
         )
     elif plot_type in amp_consts.PLOT_HAS_Y:
         # Customize Y axis
-        plot_data_dict["y"] = init_param(
-            parent=qs,
-            widget_type="selectbox",
-            param_name="y",
-            widget_params=dict(label="Y axis", options=y_columns, index=0),
-            show_help=param_help_level,
-            params_doc=params_dict,
-            overrides={},
+        plot_data_dict["y"] = param_initializer(
+            param_name="y", widget_params=dict(label="Y axis", options=y_columns, index=0),
         )
         if (
             show_advanced_settings
@@ -613,37 +523,23 @@ def customize_plot():
                 amp_consts.PLOT_SCATTER_MATRIX,
             ]
         ):
-            plot_data_dict["log_y"] = init_param(
-                parent=qs,
+            plot_data_dict["log_y"] = param_initializer(
                 widget_type="checkbox",
                 param_name="log_y",
                 widget_params=dict(label="Log Y axis?"),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
         if plot_data_dict["y"] == amp_consts.PICK_ONE:
             return
 
     if plot_type == amp_consts.PLOT_SCATTER_3D:
-        plot_data_dict["z"] = init_param(
-            parent=qs,
-            widget_type="selectbox",
-            param_name="z",
-            widget_params=dict(label="Z axis", options=z_columns, index=0),
-            show_help=param_help_level,
-            params_doc=params_dict,
-            overrides={},
+        plot_data_dict["z"] = param_initializer(
+            param_name="z", widget_params=dict(label="Z axis", options=z_columns, index=0),
         )
         if show_advanced_settings and plot_data_dict["z"] in num_columns:
-            plot_data_dict["log_z"] = init_param(
-                parent=qs,
+            plot_data_dict["log_z"] = param_initializer(
                 widget_type="checkbox",
                 param_name="log_z",
                 widget_params=dict(label="Log Z axis?"),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
         else:
             plot_data_dict["log_z"] = False
@@ -652,16 +548,11 @@ def customize_plot():
 
     # Target for supervised machine learning
     if plot_type in amp_consts.PLOT_HAS_TARGET:
-        plot_data_dict["target"] = init_param(
-            parent=qs,
-            widget_type="selectbox",
+        plot_data_dict["target"] = param_initializer(
             param_name="target",
             widget_params=dict(
                 label="ML target:", options=[amp_consts.PICK_ONE] + supervision_columns, index=0
             ),
-            show_help=param_help_level,
-            params_doc=params_dict,
-            overrides={},
         )
         if plot_data_dict["target"] == amp_consts.PICK_ONE:
             return
@@ -673,9 +564,7 @@ def customize_plot():
 
     # Color column
     if plot_type in amp_consts.PLOT_HAS_COLOR:
-        plot_data_dict["color"] = init_param(
-            parent=qs,
-            widget_type="selectbox",
+        plot_data_dict["color"] = param_initializer(
             param_name="color",
             widget_params=dict(
                 label="Use this column for color:",
@@ -684,15 +573,11 @@ def customize_plot():
                 if plot_type not in amp_consts.PLOT_HAS_TARGET
                 else all_columns.index(plot_data_dict["target"]) + 1,
             ),
-            show_help=param_help_level,
-            params_doc=params_dict,
-            overrides={},
         )
 
     # Ignored columns
     if plot_type in amp_consts.PLOT_HAS_IGNORE_COLUMNS:
-        plot_data_dict["ignore_columns"] = init_param(
-            parent=qs,
+        plot_data_dict["ignore_columns"] = param_initializer(
             widget_type="multiselect",
             param_name="ignore_columns",
             widget_params=dict(
@@ -702,13 +587,11 @@ def customize_plot():
                 if plot_type in amp_consts.PLOT_HAS_TARGET
                 else [],
             ),
-            show_help=param_help_level,
-            params_doc="""
+            doc_override="""
                 This columns will be omitted when building the model, 
                 but available for display.  
                 Use this to avoid giving the answer to the question when building models.
                 """,
-            overrides={},
         )
     if show_advanced_settings:
         qs.subheader("Advanced parameters:")
@@ -716,9 +599,7 @@ def customize_plot():
         available_marginals = [amp_consts.NONE_SELECTED, "rug", "box", "violin", "histogram"]
         # Solver selection
         if plot_type in amp_consts.PLOT_HAS_SOLVER:
-            plot_data_dict["solver"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["solver"] = param_initializer(
                 param_name="solver",
                 widget_params=dict(
                     label="Solver",
@@ -729,14 +610,10 @@ def customize_plot():
                         "eigen": "Eigenvalue decomposition",
                     }.get(x, "svd"),
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
         # About NCA
         if plot_type in amp_consts.PLOT_HAS_NCOMP:
-            plot_data_dict["n_components"] = init_param(
-                parent=qs,
+            plot_data_dict["n_components"] = param_initializer(
                 widget_type="number_input",
                 param_name="n_components",
                 widget_params=dict(
@@ -745,23 +622,15 @@ def customize_plot():
                     max_value=len(num_columns),
                     value=2,
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
         if plot_type in amp_consts.PLOT_HAS_INIT:
-            plot_data_dict["init"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["init"] = param_initializer(
                 param_name="init",
                 widget_params=dict(
                     label="Linear transformation init",
                     options=["auto", "pca", "lda", "identity", "random"],
                     index=0,
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
             if plot_data_dict["init"] == "auto":
                 qs.markdown(
@@ -802,64 +671,43 @@ def customize_plot():
                     Each value is sampled from the standard normal distribution.
                     """
                 )
-            qs.markdown("<hr>", unsafe_allow_html=True)
+            qs.markdown("___")
         # Dot text
         if plot_type in amp_consts.PLOT_HAS_TEXT:
-            plot_data_dict["text"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["text"] = param_initializer(
                 param_name="text",
                 widget_params=dict(
                     label="Text display column",
                     options=[amp_consts.NONE_SELECTED] + cat_columns,
                     index=0,
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
         # Dot size
         if plot_type in amp_consts.PLOT_HAS_SIZE:
-            plot_data_dict["size"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["size"] = param_initializer(
                 param_name="size",
                 widget_params=dict(
                     label="Use this column to select what dot size represents:",
                     options=[amp_consts.NONE_SELECTED] + num_columns,
                     index=0,
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
-            plot_data_dict["size_max"] = init_param(
-                parent=qs,
+            plot_data_dict["size_max"] = param_initializer(
                 widget_type="number_input",
                 param_name="size_max",
                 widget_params=dict(label="Max dot size", min_value=11, max_value=100, value=60),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
         if plot_type in amp_consts.PLOT_HAS_SHAPE:
-            plot_data_dict["symbol"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["symbol"] = param_initializer(
                 param_name="symbol",
                 widget_params=dict(
                     label="Select a column for the dot symbols",
                     options=[amp_consts.NONE_SELECTED] + cat_columns,
                     index=0,
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
         if plot_type in amp_consts.PLOT_HAS_TREND_LINE:
-            plot_data_dict["trendline"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["trendline"] = param_initializer(
                 param_name="trendline",
                 widget_params=dict(
                     label="Trend line mode",
@@ -869,29 +717,20 @@ def customize_plot():
                         "lowess": "Locally Weighted Scatterplot Smoothing",
                     }.get(x, x),
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
 
         # Facet
         if plot_type in amp_consts.PLOT_HAS_FACET:
-            plot_data_dict["facet_col"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["facet_col"] = param_initializer(
                 param_name="facet_col",
                 widget_params=dict(
                     label="Use this column to split the plot in columns:",
                     options=[amp_consts.NONE_SELECTED] + cat_columns,
                     index=0,
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
             if plot_data_dict["facet_col"] != amp_consts.NONE_SELECTED:
-                plot_data_dict["facet_col_wrap"] = init_param(
-                    parent=qs,
+                plot_data_dict["facet_col_wrap"] = param_initializer(
                     widget_type="number_input",
                     param_name="facet_col_wrap",
                     widget_params=dict(
@@ -900,39 +739,24 @@ def customize_plot():
                         max_value=20,
                         value=4,
                     ),
-                    show_help=param_help_level,
-                    params_doc=params_dict,
-                    overrides={},
                 )
             else:
                 plot_data_dict["facet_col_wrap"] = 4
-            plot_data_dict["facet_row"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["facet_row"] = param_initializer(
                 param_name="facet_row",
                 widget_params=dict(
                     label="Use this column to split the plot in lines:",
                     options=[amp_consts.NONE_SELECTED] + cat_columns,
                     index=0,
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
         # Histogram specific parameters
         if plot_type in amp_consts.PLOT_HAS_MARGINAL and is_anim:
-            plot_data_dict["marginal"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["marginal"] = param_initializer(
                 param_name="marginal",
                 widget_params=dict(label="Marginal", options=available_marginals, index=0),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
-            plot_data_dict["orientation"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["orientation"] = param_initializer(
                 param_name="orientation",
                 widget_params=dict(
                     label="orientation",
@@ -942,145 +766,88 @@ def customize_plot():
                     ),
                     index=0,
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
         if plot_type in amp_consts.PLOT_HAS_BAR_MODE:
-            plot_data_dict["barmode"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["barmode"] = param_initializer(
                 param_name="barmode",
                 widget_params=dict(
                     label="bar mode", options=["group", "overlay", "relative"], index=2
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
         if plot_type in amp_consts.PLOT_HAS_MARGINAL_XY and is_anim:
-            plot_data_dict["marginal_x"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["marginal_x"] = param_initializer(
                 param_name="marginal_x",
                 widget_params=dict(
                     label="Marginals for X axis", options=available_marginals, index=0
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
-            plot_data_dict["marginal_y"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["marginal_y"] = param_initializer(
                 param_name="marginal_y",
                 widget_params=dict(
                     label="Marginals for Y axis", options=available_marginals, index=0
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
         # Box plots and histograms
         if plot_type in amp_consts.PLOT_HAS_POINTS:
-            plot_data_dict["points"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["points"] = param_initializer(
                 param_name="points",
                 widget_params=dict(
                     label="Select which points are displayed",
                     options=["none", "outliers", "suspectedoutliers", "all"],
                     index=1,
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
             plot_data_dict["points"] = (
                 plot_data_dict["points"] if plot_data_dict["points"] != "none" else False
             )
         # Box plots
         if plot_type == amp_consts.PLOT_BOX:
-            plot_data_dict["notched"] = init_param(
-                parent=qs,
-                widget_type="checkbox",
+            plot_data_dict["notched"] = param_initializer(
                 param_name="notched",
+                widget_type="checkbox",
                 widget_params=dict(label="Use notches?", value=False),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
         # Violin plots
         if plot_type == amp_consts.PLOT_VIOLIN:
-            plot_data_dict["box"] = init_param(
-                parent=qs,
-                widget_type="checkbox",
-                param_name="box",
-                widget_params=dict(label="Show boxes", value=False),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
+            plot_data_dict["box"] = param_initializer(
+                param_name="box", widget_params=dict(label="Show boxes", value=False),
             )
-            plot_data_dict["violinmode"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["violinmode"] = param_initializer(
                 param_name="violinmode",
                 widget_params=dict(label="Violin display mode", options=["group", "overlay"]),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
         # Density heat map
         if plot_type in amp_consts.PLOT_HAS_BINS:
-            plot_data_dict["nbinsx"] = init_param(
-                parent=qs,
+            plot_data_dict["nbinsx"] = param_initializer(
                 widget_type="number_input",
                 param_name="nbinsx",
                 widget_params=dict(
                     label="Number of bins in the X axis", min_value=1, max_value=1000, value=20
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
-            plot_data_dict["nbinsy"] = init_param(
-                parent=qs,
+            plot_data_dict["nbinsy"] = param_initializer(
                 widget_type="number_input",
                 param_name="nbinsy",
                 widget_params=dict(
                     label="Number of bins in the Y axis", min_value=1, max_value=1000, value=20
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
         # Density contour map
         if plot_type == amp_consts.PLOT_DENSITY_CONTOUR:
-            plot_data_dict["fill_contours"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["fill_contours"] = param_initializer(
                 param_name="fill_contours",
                 widget_params=dict(label="Fill contours", value=False),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
         # PCA loadings
         if plot_type == amp_consts.PLOT_PCA_2D:
-            plot_data_dict["show_loadings"] = init_param(
-                parent=qs,
-                widget_type="checkbox",
+            plot_data_dict["show_loadings"] = param_initializer(
                 param_name="show_loadings",
+                widget_type="checkbox",
                 widget_params=dict(label="Show loadings", value=False),
-                show_help=param_help_level,
-                params_doc="Display PCA loadings for each attribute",
-                overrides={},
             )
         # Correlation plot
         if plot_type == amp_consts.PLOT_CORR_MATRIX:
-            plot_data_dict["corr_method"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["corr_method"] = param_initializer(
                 param_name="corr_method",
                 widget_params=dict(
                     label="Correlation method",
@@ -1091,75 +858,48 @@ def customize_plot():
                         "spearman": "spearman : Spearman rank correlation",
                     }.get(x),
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
         # Matrix plot
         if plot_type == amp_consts.PLOT_SCATTER_MATRIX:
-            plot_data_dict["matrix_diag"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["matrix_diag"] = param_initializer(
                 param_name="matrix_diag",
                 widget_params=dict(
                     label="diagonal", options=["Nothing", "Histogram", "Scatter"], index=1
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
-            plot_data_dict["matrix_up"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["matrix_up"] = param_initializer(
                 param_name="matrix_up",
                 widget_params=dict(
                     label="Upper triangle",
                     options=["Nothing", "Scatter", "2D histogram"],
                     index=1,
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
-            plot_data_dict["matrix_down"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["matrix_down"] = param_initializer(
                 param_name="matrix_down",
                 widget_params=dict(
                     label="Lower triangle",
                     options=["Nothing", "Scatter", "2D histogram"],
                     index=1,
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
 
         # Hover data
         if plot_type in amp_consts.PLOT_HAS_CUSTOM_HOVER_DATA:
-            plot_data_dict["hover_name"] = init_param(
-                parent=qs,
-                widget_type="selectbox",
+            plot_data_dict["hover_name"] = param_initializer(
                 param_name="hover_name",
                 widget_params=dict(
                     label="Hover name:",
                     options=[amp_consts.NONE_SELECTED] + cat_columns,
                     index=0,
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
-            plot_data_dict["hover_data"] = init_param(
-                parent=qs,
+            plot_data_dict["hover_data"] = param_initializer(
                 widget_type="multiselect",
                 param_name="hover_data",
                 widget_params=dict(
                     label="Add columns to hover data", options=df.columns.to_list(), default=[]
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
     else:
         if plot_type == amp_consts.PLOT_SCATTER_MATRIX:
@@ -1173,9 +913,7 @@ def customize_plot():
 
     if adv_mode:
         plot_data_dict["height"] = int(
-            init_param(
-                parent=qs,
-                widget_type="selectbox",
+            param_initializer(
                 param_name="height",
                 widget_params=dict(
                     label="Plot height in pixels",
@@ -1194,31 +932,32 @@ def customize_plot():
                     ],
                     index=4,
                 ),
-                show_help=param_help_level,
-                params_doc=params_dict,
-                overrides={},
             )
         )
         # Template
         available_templates = list(pio.templates.keys())
-        plot_data_dict["template"] = init_param(
-            parent=qs,
-            widget_type="selectbox",
+        plot_data_dict["template"] = param_initializer(
             param_name="template",
             widget_params=dict(
                 label="Plot template (theme): ",
                 options=available_templates,
                 index=available_templates.index(pio.templates.default),
             ),
-            show_help=param_help_level,
-            params_doc=params_dict,
-            overrides={},
         )
     else:
         plot_data_dict["height"] = 900
         plot_data_dict["template"] = pio.templates.default
 
-    if (is_anim or defer_render) and not st.button(label="Render", key="render_plot"):
+    if not reporting_mode:
+        report_comment = st.text_area(label="Add a comment to your report (markdown accepted)")
+    else:
+        report_comment = ""
+
+    if (
+        not reporting_mode
+        and (is_anim or defer_render)
+        and not st.button(label="Render", key="render_plot")
+    ):
         if is_anim and show_info:
             st.info(
                 """Since animations may tak long to initialize, 
@@ -1244,8 +983,13 @@ def customize_plot():
         ]
         df = df.dropna(axis="index")
 
+    # st.write(plot_data_dict)
     fig_data = build_plot(
-        is_anim=is_anim, plot_type=plot_type, df=df, progress=update_progress, **plot_data_dict,
+        is_anim=is_anim,
+        plot_type=plot_type,
+        df=df.copy(),
+        progress=update_progress,
+        **plot_data_dict,
     )
 
     if fig_data:
@@ -1260,6 +1004,31 @@ def customize_plot():
             st.plotly_chart(
                 figure_or_data=fig_data.get("figure", None), use_container_width=True
             )
+
+            if not reporting_mode:
+
+                def ts_to_str(o):
+                    if isinstance(o, datetime.datetime):
+                        return o.__str__()
+
+                b64 = base64.b64encode(
+                    json.dumps(
+                        {
+                            "params": plot_data_dict,
+                            "data_wrangling": dw_options,
+                            "plot": plot_type,
+                            "is_anim": is_anim,
+                            "dataframe": df.to_dict(),
+                            "comment": report_comment,
+                        },
+                        default=ts_to_str,
+                    ).encode("utf-8")
+                ).decode()
+                href = f"""<a href="data:file/json;base64,{b64}" download="plot_configuration.json">
+                Download plot parameters as JSON file</a> 
+                - right-click and save as &lt;some_name&gt;.html"""
+                st.markdown(href, unsafe_allow_html=True)
+                st.markdown("")
 
         if "model_data" in fig_data:
             model_data = fig_data.get("model_data", None)
