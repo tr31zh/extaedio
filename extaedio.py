@@ -90,7 +90,9 @@ def wrangle_the_data(df, url, dw_options):
 
     # Sort
     if dw_options["sort_columns"]:
-        df = df.sort_values(dw_options["sort_columns"], ascending=not dw_options["invert_sort"])
+        df = df.sort_values(
+            dw_options["sort_columns"], ascending=not dw_options["invert_sort"],
+        )
 
     # Filter columns
     df = df[dw_options["kept_columns"]]
@@ -139,63 +141,149 @@ def customize_plot():
     else:
         report = None
 
-    param_help_level = st.selectbox(
-        label="Show help related to plot parameters:",
-        options=["none", "mandatory", "all"],
-        format_func=lambda x: {
-            "none": "Never",
-            "mandatory": "When waiting for non optional parameters (recommended)",
-            "all": "Always",
-        }.get(x, "all"),
-        index=1,
-    )
-
     if not reporting_mode:
-        st.markdown("")
-
-        defer_render = st.checkbox(
-            label="""
-            Defer rendering - generate plot only when the "Render" button, 
-            only visible when the plot is ready, at the botton is pressed
-            """,
-            value=False,
+        st.header(f"Step {step} - How do we get started:")
+        step += 1
+        ui_mode = st.radio(
+            label="User interface mode",
+            options=[
+                "no_choice_all_help",
+                "no_choice_some_help",
+                "some_choice_some_help",
+                "all_choices",
+            ],
+            index=1,
+            format_func=lambda x: {
+                "no_choice_all_help": "Beginner",
+                "no_choice_some_help": "Normal",
+                "some_choice_some_help": "Advanced",
+                "all_choices": "Expert",
+            }.get(x, "Unknown"),
         )
 
-        show_info = st.checkbox(
-            label="Show information panels (blue panels with hints and tips).", value=False
-        )
+        if ui_mode == "some_choice_some_help":
+            st.header(f"Step {step} - Some basic configuration")
+            step += 1
+        elif ui_mode == "all_choices":
+            st.header(f"Step {step} - Advanced settings")
+            step += 1
+        else:
+            pass
 
-        adv_mode = st.checkbox(label="Advanced mode", value=False)
-        if show_info:
-            st.info(
-                """
-                **Advanced mode** will add:
-                - Options to customize display
-                - Option to enable data wrangling (filtering columns and rows)
-                - Option to add advanced plots to list
-                - Option to add advanced parameters to plots
-                """
+        if ui_mode == "no_choice_some_help":
+            param_help_level = "mandatory"
+        elif ui_mode == "no_choice_all_help":
+            param_help_level = "all"
+        else:
+            param_help_level = st.selectbox(
+                label="Show help related to plot parameters:",
+                options=["none", "mandatory", "all"],
+                format_func=lambda x: {
+                    "none": "Never",
+                    "mandatory": "When waiting for non optional parameters (recommended)",
+                    "all": "Always",
+                }.get(x, "all"),
+                index=1,
             )
 
-        if adv_mode:
-            st.header(f"Step {step} - Set display options")
-            step += 1
+        if ui_mode == "no_choice_some_help":
+            real_time_render = False
+        elif ui_mode == "no_choice_all_help":
+            real_time_render = False
+        else:
+            real_time_render = st.checkbox(
+                label="""
+                Realtime rendering: build plot as soon as a parameter is changed, may render the UI unresponsive. Disabled for animations
+                """,
+                value=False,
+            )
 
+        if ui_mode == "no_choice_some_help":
+            show_info = False
+        elif ui_mode == "no_choice_all_help":
+            show_info = "True"
+        else:
+            show_info = st.checkbox(
+                label="Show information panels (blue panels with hints and tips).", value=False
+            )
+
+        if ui_mode == "no_choice_some_help":
+            use_side_bar = True
+        elif ui_mode == "no_choice_all_help":
+            use_side_bar = True
+        else:
+            use_side_bar = st.checkbox(label="Plot settings to side bar", value=True)
             if show_info:
                 st.info(
                     """
-                    - **Plot settings to side bar**:Put the plot setttings in the sidebar instead 
-                    of with all the other settings (Recommended).  
-                    - **Force wide display**: Set the main UI to occupy all the available space,
-                    can also be set from the settings. This overrides the settings if checked.
+                    **Plot settings to side bar**:Put the plot setttings in the sidebar instead 
+                    of with all the other settings (Recommended).
                     """
                 )
-            use_side_bar = st.checkbox(label="Plot settings to side bar", value=True)
+
+        if ui_mode == "no_choice_some_help":
+            show_advanced_plots = False
+        elif ui_mode == "no_choice_all_help":
+            show_advanced_plots = False
+        else:
+            show_advanced_plots = st.checkbox(label="Show advanced plots.", value=False)
+            if show_info:
+                st.info(
+                    """**Show advanced plots.**: Expand the list of available plots.
+                Includes among others PCA3D, LDA, density plots, ..."""
+                )
+
+        if ui_mode == "no_choice_some_help":
+            show_dw_options = False
+        elif ui_mode == "no_choice_all_help":
+            show_dw_options = False
+        elif ui_mode == "some_choice_some_help":
+            show_dw_options = False
+        elif ui_mode == "all_choices":
+            show_dw_options = st.checkbox(label="Show dataframe customization options.")
+            if show_info:
+                st.info(
+                    "**Show dataframe customization options**: Add widgets to sort, filter and clean the dataframe."
+                )
+        else:
+            show_dw_options = False
+            st.error(f"Unknown UI mode: {ui_mode}")
+
+        if ui_mode == "no_choice_some_help":
+            show_advanced_settings = False
+        elif ui_mode == "no_choice_all_help":
+            show_advanced_settings = False
+        else:
+            show_advanced_settings = st.checkbox(
+                label="Show plot advanced parameters", value=False
+            )
+            if show_info:
+                st.info(
+                    """**Show plot customization advanced parameters**: 
+                    Add widgets to further customize the plots.  
+                    Usefull if the rendering takes too long when changing a parameter.
+                    """
+                )
+
+        if ui_mode == "no_choice_some_help":
+            _max_width_()
+        elif ui_mode == "no_choice_all_help":
+            _max_width_()
+        elif ui_mode == "some_choice_some_help":
+            _max_width_()
+        elif ui_mode == "all_choices":
             if st.checkbox(label="Force wide display", value=True,):
                 _max_width_()
+            if show_info:
+                st.info(
+                    """
+                    **Force wide display**: Set the main UI to occupy all the available space,
+                    can also be set from the settings. This if checked, overrides the settings.
+                    """
+                )
         else:
-            use_side_bar = True
-            _max_width_()
+            st.error(f"Unknown UI mode: {ui_mode}")
+
         df, selected_file = amp_st_functs.load_dataframe(step=step, show_info=show_info)
         step += 1
         if df is None:
@@ -203,138 +291,112 @@ def customize_plot():
 
         dw_options = {}
 
-        if adv_mode:
-            st.header(f"Step {step} - Set advanced settings")
-            step += 1
+        if show_dw_options:
+            st.header(f"Step {step} - Data wrangling")
+            st.subheader("Source dataframe")
+            st.markdown("dataframe first rows")
+            line_display_count = st.number_input(
+                label="Lines to display", min_value=5, max_value=1000, value=5
+            )
+            st.dataframe(df.head(line_display_count))
+            st.markdown("Data frame numerical columns description")
+            st.dataframe(df.describe())
+            st.markdown("Dataframe's column types")
+            st.write(df.dtypes)
+
+            st.subheader(f"Sort")
             if show_info:
                 st.info(
                     """
-                If activated, this settings can quickly become overwhelming.  
-                - **Show advanced plots.**: Expand the list of available plots.
-                - **Show dataframe customization options**: Add widgets to sort, filter and clean the dataframe.  
-                - **Show plot customization advanced parameters**: Add widgets to further customize the plots.  
-                Usefull if the rendering takes too long when changing a parameter.
+                Select columns to sort the dataframe, if multiple columns are selected,
+                sort will be applied in the displayed order.
                 """
                 )
-
-            show_advanced_plots = st.checkbox(label="Show advanced plots.", value=False)
-            show_dw_options = st.checkbox(
-                label="Show dataframe customization options - sort, filter, clean."
+            dw_options["sort_columns"] = st.multiselect(
+                label="Sort by", options=df.columns.to_list()
             )
-            show_advanced_settings = st.checkbox(
-                label="Show plot advanced parameters", value=False
+            dw_options["invert_sort"] = st.checkbox(label="Reverse sort?", value=False)
+
+            st.subheader("Filter columns")
+            dw_options["kept_columns"] = st.multiselect(
+                label="Columns to keep",
+                options=df.columns.to_list(),
+                default=df.columns.to_list(),
             )
 
-            if show_dw_options:
-                st.header(f"Step {step} - Data wrangling")
-                st.subheader("Source dataframe")
-                st.markdown("dataframe first rows")
-                line_display_count = st.number_input(
-                    label="Lines to display", min_value=5, max_value=1000, value=5
+            st.subheader("Filter rows")
+            if show_info:
+                st.info(
+                    """Select which columns will be filtered by values.  
+                    Only date and string columns can be filtered at the moment"""
                 )
-                st.dataframe(df.head(line_display_count))
-                st.markdown("Data frame numerical columns description")
-                st.dataframe(df.describe())
-                st.markdown("Dataframe's column types")
-                st.write(df.dtypes)
-
-                st.subheader(f"Sort")
-                if show_info:
-                    st.info(
-                        """
-                    Select columns to sort the dataframe, if multiple columns are selected,
-                    sort will be applied in the displayed order.
-                    """
-                    )
-                dw_options["sort_columns"] = st.multiselect(
-                    label="Sort by", options=df.columns.to_list()
+            filter_columns = st.multiselect(
+                label="Select which columns you want to use to filter the rows:",
+                options=df.select_dtypes(include=["object", "datetime"]).columns.to_list(),
+                default=None,
+            )
+            if filter_columns and show_info:
+                st.info(
+                    """For each selected column select all the values that will be included.
+                    Less rows means faster dashboard"""
                 )
-                dw_options["invert_sort"] = st.checkbox(label="Reverse sort?", value=False)
-
-                st.subheader("Filter columns")
-                dw_options["kept_columns"] = st.multiselect(
-                    label="Columns to keep",
-                    options=df.columns.to_list(),
-                    default=df.columns.to_list(),
+            dw_options["filters"] = {}
+            for column in filter_columns:
+                st.subheader(f"{column}: ")
+                select_all = st.checkbox(label=f"{column} Select all:")
+                elements = list(df[column].unique())
+                dw_options["filters"][column] = st.multiselect(
+                    label=f"Select which {column} to include",
+                    options=elements,
+                    default=None if not select_all else elements,
                 )
 
-                st.subheader("Filter rows")
-                if show_info:
-                    st.info(
-                        """Select which columns will be filtered by values.  
-                        Only date and string columns can be filtered at the moment"""
-                    )
-                filter_columns = st.multiselect(
-                    label="Select which columns you want to use to filter the rows:",
-                    options=df.select_dtypes(include=["object", "datetime"]).columns.to_list(),
-                    default=None,
+            st.subheader("Bin numerical columns")
+            if show_info:
+                st.info(
+                    """Select which columns will be binned.  
+                    Numeric columns only"""
                 )
-                if filter_columns and show_info:
-                    st.info(
-                        """For each selected column select all the values that will be included.
-                        Less rows means faster dashboard"""
-                    )
-                dw_options["filters"] = {}
-                for column in filter_columns:
-                    st.subheader(f"{column}: ")
-                    select_all = st.checkbox(label=f"{column} Select all:")
-                    elements = list(df[column].unique())
-                    dw_options["filters"][column] = st.multiselect(
-                        label=f"Select which {column} to include",
-                        options=elements,
-                        default=None if not select_all else elements,
-                    )
-
-                st.subheader("Bin numerical columns")
-                if show_info:
-                    st.info(
-                        """Select which columns will be binned.  
-                        Numeric columns only"""
-                    )
-                bin_columns = st.multiselect(
-                    label="Select which columns you want replace by bins:",
-                    options=df.select_dtypes(include=[np.number]).columns.to_list(),
-                    default=None,
-                )
-                if bin_columns and show_info:
-                    st.info("""For each selected column select the bin value""")
-                dw_options["binners"] = {}
-                for column in bin_columns:
-                    st.subheader(f"{column}: ")
-                    dw_options["binners"][column] = st.number_input(
-                        label="Bin count:",
-                        min_value=1,
-                        max_value=len(df[column].unique()),
-                        value=10,
-                    )
-
-                st.subheader("Clean")
-                if show_info:
-                    st.info(
-                        "Some plots like PCA won't work if NA values are present in the dataframe"
-                    )
-                dw_options["remove_na"] = st.checkbox(
-                    label="Remove rows with NA values", value=False
-                )
-                dw_options["remove_duplicates"] = st.checkbox(
-                    label="Remove duplicates", value=False
+            bin_columns = st.multiselect(
+                label="Select which columns you want replace by bins:",
+                options=df.select_dtypes(include=[np.number]).columns.to_list(),
+                default=None,
+            )
+            if bin_columns and show_info:
+                st.info("""For each selected column select the bin value""")
+            dw_options["binners"] = {}
+            for column in bin_columns:
+                st.subheader(f"{column}: ")
+                dw_options["binners"][column] = st.number_input(
+                    label="Bin count:",
+                    min_value=1,
+                    max_value=len(df[column].unique()),
+                    value=10,
                 )
 
-                df = wrangle_the_data(df=df, url=selected_file, dw_options=dw_options)
+            st.subheader("Clean")
+            if show_info:
+                st.info(
+                    "Some plots like PCA won't work if NA values are present in the dataframe"
+                )
+            dw_options["remove_na"] = st.checkbox(
+                label="Remove rows with NA values", value=False
+            )
+            dw_options["remove_duplicates"] = st.checkbox(
+                label="Remove duplicates", value=False
+            )
 
-                df = df.reset_index(drop=True)
+            df = wrangle_the_data(df=df, url=selected_file, dw_options=dw_options)
 
-                st.subheader("Transformed dataframe")
-                st.markdown("dataframe first rows")
-                st.dataframe(df.head(line_display_count))
-                st.markdown("Data frame numerical columns description")
-                st.dataframe(df.describe())
-                st.markdown("Dataframe's column types")
-                st.write(df.dtypes)
-        else:
-            show_advanced_settings = False
-            defer_render = False
-            show_advanced_plots = False
+            df = df.reset_index(drop=True)
+
+            st.subheader("Transformed dataframe")
+            st.markdown("dataframe first rows")
+            st.dataframe(df.head(line_display_count))
+            st.markdown("Data frame numerical columns description")
+            st.dataframe(df.describe())
+            st.markdown("Dataframe's column types")
+            st.write(df.dtypes)
 
         qs = st.sidebar if use_side_bar else st
         if use_side_bar:
@@ -352,7 +414,7 @@ def customize_plot():
             index=0,
         )
         st.header(
-            f"Step {step} - Plot {plot_type}{' customization (Widgets in sidebar)' if use_side_bar else ''}"
+            f"Step {step} - &darr; Plot {plot_type}{' customization (Widgets in sidebar)' if use_side_bar else ''} &darr;"
         )
         step += 1
 
@@ -366,7 +428,6 @@ def customize_plot():
     else:
         if "dataframe" in report:
             df = pd.DataFrame.from_dict(report.get("dataframe", {}))
-            st.info("Got df from report")
             selected_file = None
             dw_options = {}
         else:
@@ -377,9 +438,9 @@ def customize_plot():
         show_info = False
         show_advanced_settings = True
         param_overrides = report.get("params", {})
-        adv_mode = True
-        defer_render = False
+        real_time_render = True
         comment = report.get("comment", "")
+        param_help_level = "mandatory"
         if comment:
             st.subheader("A word from the creator")
             st.markdown(comment)
@@ -714,7 +775,7 @@ def customize_plot():
                     options=[amp_consts.NONE_SELECTED, "ols", "lowess"],
                     format_func=lambda x: {
                         "ols": "Ordinary Least Squares ",
-                        "lowess": "Locally Weighted Scatterplot Smoothing",
+                        "lowess": "Locally Weighted scatterplot Smoothing",
                     }.get(x, x),
                 ),
             )
@@ -864,14 +925,14 @@ def customize_plot():
             plot_data_dict["matrix_diag"] = param_initializer(
                 param_name="matrix_diag",
                 widget_params=dict(
-                    label="diagonal", options=["Nothing", "Histogram", "Scatter"], index=1
+                    label="diagonal", options=["Nothing", "Histogram", "scatter"], index=1,
                 ),
             )
             plot_data_dict["matrix_up"] = param_initializer(
                 param_name="matrix_up",
                 widget_params=dict(
                     label="Upper triangle",
-                    options=["Nothing", "Scatter", "2D histogram"],
+                    options=["Nothing", "scatter", "2D histogram"],
                     index=1,
                 ),
             )
@@ -879,7 +940,7 @@ def customize_plot():
                 param_name="matrix_down",
                 widget_params=dict(
                     label="Lower triangle",
-                    options=["Nothing", "Scatter", "2D histogram"],
+                    options=["Nothing", "scatter", "2D histogram"],
                     index=1,
                 ),
             )
@@ -904,14 +965,14 @@ def customize_plot():
     else:
         if plot_type == amp_consts.PLOT_SCATTER_MATRIX:
             plot_data_dict["matrix_diag"] = "Histogram"
-            plot_data_dict["matrix_up"] = "Scatter"
-            plot_data_dict["matrix_down"] = "Scatter"
+            plot_data_dict["matrix_up"] = "scatter"
+            plot_data_dict["matrix_down"] = "scatter"
         if plot_type == amp_consts.PLOT_PCA_2D:
             plot_data_dict["show_loadings"] = False
         if plot_type == amp_consts.PLOT_CORR_MATRIX:
             plot_data_dict["corr_method"] = "pearson"
 
-    if adv_mode:
+    if show_advanced_settings:
         plot_data_dict["height"] = int(
             param_initializer(
                 param_name="height",
@@ -955,7 +1016,7 @@ def customize_plot():
 
     if (
         not reporting_mode
-        and (is_anim or defer_render)
+        and (is_anim or not real_time_render)
         and not st.button(label="Render", key="render_plot")
     ):
         if is_anim and show_info:
@@ -976,11 +1037,9 @@ def customize_plot():
 
     if plot_type in amp_consts.PLOT_NEEDS_NA_DROP and df.isnull().values.any():
         st.markdown("NA values found in will be removed:")
-        [
-            st.markdown(f"- {c} has {df[c].isnull().sum()} NA values")
-            for c in all_columns
-            if df[c].isnull().values.any()
-        ]
+        for c in all_columns:
+            if df[c].isnull().values.any():
+                st.markdown(f"- {c} has {df[c].isnull().sum()} NA values")
         df = df.dropna(axis="index")
 
     # st.write(plot_data_dict)
@@ -1007,10 +1066,6 @@ def customize_plot():
 
             if not reporting_mode:
 
-                def ts_to_str(o):
-                    if isinstance(o, datetime.datetime):
-                        return o.__str__()
-
                 b64 = base64.b64encode(
                     json.dumps(
                         {
@@ -1021,7 +1076,7 @@ def customize_plot():
                             "dataframe": df.to_dict(),
                             "comment": report_comment,
                         },
-                        default=ts_to_str,
+                        default=lambda x: str(x) if isinstance(x, datetime.datetime) else None,
                     ).encode("utf-8")
                 ).decode()
                 href = f"""<a href="data:file/json;base64,{b64}" download="plot_configuration.json">
@@ -1049,7 +1104,7 @@ def customize_plot():
                     go.Bar(x=df_ev["pc"], y=df_ev["exp_var_per"], name="individual",)
                 )
                 ev_fig.add_trace(
-                    go.Scatter(x=df_ev["pc"], y=df_ev["cumulative"], name="cumulative",)
+                    go.scatter(x=df_ev["pc"], y=df_ev["cumulative"], name="cumulative",)
                 )
                 ev_fig.update_layout(
                     height=plot_data_dict["height"],
