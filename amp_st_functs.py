@@ -1,4 +1,5 @@
 import pandas as pd
+import re
 
 import streamlit as st
 
@@ -32,19 +33,16 @@ def load_dataframe(step: int, show_info):
     if selected_file == amp_consts.URL_LOCAL_FILE:
         selected_file = st.file_uploader(label="Select file to upload")
         if selected_file is None:
-            return None, None
+            return None
     elif selected_file == amp_consts.URL_DISTANT_FILE:
         selected_file = st.text_input(label="Paste web URL", value="")
         st.write(selected_file)
         if not (st.button(label="Download file", key="grab_file") and selected_file):
-            return None, None
+            return None
     df_loaded = get_df_from_url(url=selected_file)
     if df_loaded is None:
-        return None, None
-    return (
-        df_loaded.copy().reset_index(drop=True),
-        selected_file if return_selected_file else None,
-    )
+        return None
+    return df_loaded.copy().reset_index(drop=True)
 
 
 def set_anim_data(df, show_info: bool, plot_data_dict: dict, param_initializer, qs):
@@ -54,20 +52,19 @@ def set_anim_data(df, show_info: bool, plot_data_dict: dict, param_initializer, 
             button bellow the plot title is pressed
             """
         )
-    usual_time_columns = [
-        "date",
-        "date_time",
-        "datetime",
-        "timestamp",
-        "time",
-        "daterep",
+
+    time_col_match = "date|time|day|year|month"
+    time_columns = [
+        c
+        for c in df.columns.to_list()
+        if any(re.findall(pattern=time_col_match, string=c, flags=re.IGNORECASE))
     ]
-    time_columns = [col for col in df.columns.to_list() if col.lower() in usual_time_columns]
     if not time_columns:
         time_columns = [amp_consts.PICK_ONE]
     time_columns.extend(
         [col for col in df.columns.to_list() if col.lower() not in time_columns]
     )
+    time_columns.sort(key=lambda x: 0 if x.lower() == "date" else 1)
     plot_data_dict["time_column"] = param_initializer(
         widget_params=dict(label="Date/time column: ", options=time_columns, index=0),
         param_name="time_column",
@@ -77,11 +74,16 @@ def set_anim_data(df, show_info: bool, plot_data_dict: dict, param_initializer, 
         new_time_column = plot_data_dict["time_column"] + "_" + "pmgd"
     else:
         return
-    if plot_data_dict["time_column"] != amp_consts.PICK_ONE and (
-        plot_data_dict["time_column"] in usual_time_columns
-        or qs.checkbox(
-            label="Convert to date?", value=plot_data_dict["time_column"] in usual_time_columns,
+    is_default_time_col = any(
+        re.findall(
+            pattern=time_col_match,
+            string=plot_data_dict["time_column"],
+            flags=re.IGNORECASE,
         )
+    )
+    if plot_data_dict["time_column"] != amp_consts.PICK_ONE and (
+        is_default_time_col
+        or qs.checkbox(label="Convert to date?", value=is_default_time_col,)
     ):
         try:
             cf_columns = [c.casefold() for c in df.columns.to_list()]
@@ -92,16 +94,18 @@ def set_anim_data(df, show_info: bool, plot_data_dict: dict, param_initializer, 
             ):
                 src_columns = [c for c in df.columns.to_list()]
                 if "year".casefold() in cf_columns:
-                    date_series = df[src_columns[cf_columns.index("year".casefold())]].astype(
-                        "str"
-                    )
+                    date_series = df[
+                        src_columns[cf_columns.index("year".casefold())]
+                    ].astype("str")
                 else:
                     date_series = dt.now().strftime("%Y")
                 if "month".casefold() in cf_columns:
                     date_series = (
                         date_series
                         + "-"
-                        + df[src_columns[cf_columns.index("month".casefold())]].astype("str")
+                        + df[src_columns[cf_columns.index("month".casefold())]].astype(
+                            "str"
+                        )
                     )
                 else:
                     date_series = date_series + "-01"
@@ -109,16 +113,22 @@ def set_anim_data(df, show_info: bool, plot_data_dict: dict, param_initializer, 
                     date_series = (
                         date_series
                         + "-"
-                        + df[src_columns[cf_columns.index("day".casefold())]].astype("str")
+                        + df[src_columns[cf_columns.index("day".casefold())]].astype(
+                            "str"
+                        )
                     )
                 else:
                     date_series = date_series + "-01"
                 df[new_time_column] = pd.to_datetime(date_series)
             else:
                 try:
-                    df[new_time_column] = pd.to_datetime(df[plot_data_dict["time_column"]])
+                    df[new_time_column] = pd.to_datetime(
+                        df[plot_data_dict["time_column"]]
+                    )
                 except Exception as e:
-                    qs.warning("Failed to convert column to time, switching to category mode.")
+                    qs.warning(
+                        "Failed to convert column to time, switching to category mode."
+                    )
                     df[new_time_column] = (
                         df[plot_data_dict["time_column"]].astype("category").cat.codes
                     )
@@ -131,17 +141,18 @@ def set_anim_data(df, show_info: bool, plot_data_dict: dict, param_initializer, 
             df = df.sort_values([plot_data_dict["time_column"]])
     else:
         df[new_time_column] = df[plot_data_dict["time_column"]]
-    plot_data_dict["time_column"] = new_time_column
-    qs.info(f"Frames: {len(df[new_time_column].unique())}")
-    plot_data_dict["animation_group"] = param_initializer(
-        param_name="animation_group",
-        widget_params=dict(
-            label="Animation category group",
-            options=[amp_consts.NONE_SELECTED]
-            + df.select_dtypes(include=["object", "datetime"]).columns.to_list(),
-            index=0,
-        ),
-    )
+    if plot_data_dict["time_column"] != amp_consts.PICK_ONE:
+        plot_data_dict["time_column"] = new_time_column
+        qs.info(f"Frames: {len(df[new_time_column].unique())}")
+        plot_data_dict["animation_group"] = param_initializer(
+            param_name="animation_group",
+            widget_params=dict(
+                label="Animation category group",
+                options=[amp_consts.NONE_SELECTED]
+                + df.select_dtypes(include=["object", "datetime"]).columns.to_list(),
+                index=0,
+            ),
+        )
     if show_info:
         qs.info(
             """

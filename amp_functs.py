@@ -15,82 +15,52 @@ from sklearn.preprocessing import StandardScaler
 
 from dw_cssegis_data import get_wrangled_cssegis_df
 
-from amp_consts import (
-    URL_CSSE,
-    URL_ECDC_COVID,
-    URL_COVID_DATA,
-    URL_IRIS,
-    URL_CARSHARE,
-    URL_GAPMINDER,
-    URL_TIPS,
-    URL_WIND,
-    NONE_SELECTED,
-    PICK_ONE,
-    URL_ELECTION,
-    PLOT_PCA_3D,
-    PLOT_PCA_2D,
-    PLOT_LDA_2D,
-    PLOT_NCA,
-    PLOT_QDA_2D,
-    PLOT_SCATTER,
-    PLOT_SCATTER_3D,
-    PLOT_LINE,
-    PLOT_BAR,
-    PLOT_HISTOGRAM,
-    PLOT_BOX,
-    PLOT_VIOLIN,
-    PLOT_DENSITY_HEATMAP,
-    PLOT_DENSITY_CONTOUR,
-    PLOT_PARALLEL_CATEGORIES,
-    PLOT_PARALLEL_COORDINATES,
-    PLOT_SCATTER_MATRIX,
-    PLOT_CORR_MATRIX,
-)
+import amp_consts
 
 
 def format_csv_link(url):
-    if url == URL_CSSE:
+    if url == amp_consts.URL_CSSE:
         return "COVID-19 - CSSE, modified version"
-    elif url == URL_ECDC_COVID:
+    elif url == amp_consts.URL_ECDC_COVID:
         return "COVID-19 - European Centre for Disease Prevention and Control"
-    elif url == URL_COVID_DATA:
+    elif url == amp_consts.URL_COVID_DATA:
         return "COVID-19 - Github coviddata"
-    elif url == URL_IRIS:
+    elif url == amp_consts.URL_IRIS:
         return "Iris plotly express data set"
-    elif url == URL_CARSHARE:
+    elif url == amp_consts.URL_CARSHARE:
         return "Carshare plotly express data set"
-    elif url == URL_GAPMINDER:
+    elif url == amp_consts.URL_GAPMINDER:
         return "Gapminder plotly express data set"
-    elif url == URL_TIPS:
+    elif url == amp_consts.URL_TIPS:
         return "Tips plotly express data set"
-    elif url == URL_WIND:
+    elif url == amp_consts.URL_WIND:
         return "Wind plotly express data set"
     else:
         return url
 
 
 def get_plot_docstring(plot_type) -> str:
-    if plot_type == PLOT_SCATTER:
+    if plot_type == amp_consts.PLOT_SCATTER:
         return px.scatter.__doc__
-    elif plot_type == PLOT_SCATTER_3D:
+    elif plot_type == amp_consts.PLOT_SCATTER_3D:
         return px.scatter_3d.__doc__
-    elif plot_type == PLOT_LINE:
+    elif plot_type == amp_consts.PLOT_LINE:
         return px.line.__doc__
-    elif plot_type == PLOT_BAR:
+    elif plot_type == amp_consts.PLOT_BAR:
         return px.bar.__doc__
-    elif plot_type == PLOT_HISTOGRAM:
+    elif plot_type == amp_consts.PLOT_HISTOGRAM:
         return px.histogram.__doc__
-    elif plot_type == PLOT_BOX:
+    elif plot_type == amp_consts.PLOT_BOX:
         return px.box.__doc__
-    elif plot_type == PLOT_VIOLIN:
+    elif plot_type == amp_consts.PLOT_VIOLIN:
         return px.violin.__doc__
-    elif plot_type == PLOT_DENSITY_HEATMAP:
+    elif plot_type == amp_consts.PLOT_DENSITY_HEATMAP:
         return px.density_heatmap.__doc__
-    elif plot_type == PLOT_DENSITY_CONTOUR:
+    elif plot_type == amp_consts.PLOT_DENSITY_CONTOUR:
         return px.density_contour.__doc__
-    elif plot_type == PLOT_PARALLEL_CATEGORIES:
+    elif plot_type == amp_consts.PLOT_PARALLEL_CATEGORIES:
         return px.parallel_categories.__doc__
-    elif plot_type == PLOT_PARALLEL_COORDINATES:
+    elif plot_type == amp_consts.PLOT_PARALLEL_COORDINATES:
         return px.parallel_coordinates.__doc__
     else:
         return px.scatter.__doc__
@@ -99,31 +69,31 @@ def get_plot_docstring(plot_type) -> str:
 
 
 def get_plot_help_digest(plot_type) -> str:
-    if plot_type == PLOT_SCATTER:
+    if plot_type == amp_consts.PLOT_SCATTER:
         doc, _ = px.scatter.__doc__.split("\nParameters")
-    elif plot_type == PLOT_SCATTER_3D:
+    elif plot_type == amp_consts.PLOT_SCATTER_3D:
         doc, _ = px.scatter_3d.__doc__.split("\nParameters")
-    elif plot_type == PLOT_LINE:
+    elif plot_type == amp_consts.PLOT_LINE:
         doc, _ = px.line.__doc__.split("\nParameters")
-    elif plot_type == PLOT_BAR:
+    elif plot_type == amp_consts.PLOT_BAR:
         doc, _ = px.bar.__doc__.split("\nParameters")
-    elif plot_type == PLOT_HISTOGRAM:
+    elif plot_type == amp_consts.PLOT_HISTOGRAM:
         doc, _ = px.histogram.__doc__.split("\nParameters")
-    elif plot_type == PLOT_BOX:
+    elif plot_type == amp_consts.PLOT_BOX:
         doc, _ = px.box.__doc__.split("\nParameters")
-    elif plot_type == PLOT_VIOLIN:
+    elif plot_type == amp_consts.PLOT_VIOLIN:
         doc, _ = px.violin.__doc__.split("\nParameters")
-    elif plot_type == PLOT_DENSITY_HEATMAP:
+    elif plot_type == amp_consts.PLOT_DENSITY_HEATMAP:
         doc, _ = px.density_heatmap.__doc__.split("\nParameters")
-    elif plot_type == PLOT_DENSITY_CONTOUR:
+    elif plot_type == amp_consts.PLOT_DENSITY_CONTOUR:
         doc, _ = px.density_contour.__doc__.split("\nParameters")
-    elif plot_type == PLOT_PARALLEL_CATEGORIES:
+    elif plot_type == amp_consts.PLOT_PARALLEL_CATEGORIES:
         doc, _ = px.parallel_categories.__doc__.split("\nParameters")
-    elif plot_type == PLOT_PARALLEL_COORDINATES:
+    elif plot_type == amp_consts.PLOT_PARALLEL_COORDINATES:
         doc, _ = px.parallel_coordinates.__doc__.split("\nParameters")
-    elif plot_type == PLOT_SCATTER_MATRIX:
+    elif plot_type == amp_consts.PLOT_SCATTER_MATRIX:
         doc = "Plot a scatter mattrix for all selected columns"
-    elif plot_type in [PLOT_PCA_2D]:
+    elif plot_type in [amp_consts.PLOT_PCA_2D]:
         doc = """
         **Principal component analysis (2 dimensions)**  
         Given a collection of points in two, three, or higher dimensional space, 
@@ -134,7 +104,7 @@ def get_plot_help_digest(plot_type) -> str:
         These basis vectors are called principal components, and several related procedures 
         principal component analysis (PCA).
         """
-    elif plot_type in [PLOT_PCA_3D]:
+    elif plot_type in [amp_consts.PLOT_PCA_3D]:
         doc = """
         **Principal component analysis (3 dimensions)**  
         Given a collection of points in two, three, or higher dimensional space, 
@@ -145,9 +115,9 @@ def get_plot_help_digest(plot_type) -> str:
         These basis vectors are called principal components, and several related procedures 
         principal component analysis (PCA).
         """
-    elif plot_type == PLOT_CORR_MATRIX:
+    elif plot_type == amp_consts.PLOT_CORR_MATRIX:
         doc = "Plot correlation matrix"
-    elif plot_type == PLOT_LDA_2D:
+    elif plot_type == amp_consts.PLOT_LDA_2D:
         doc = """
         **Linear discriminant analysis (LDA)**  
         A generalization of Fisher's linear discriminant, a method used in statistics, 
@@ -156,9 +126,9 @@ def get_plot_help_digest(plot_type) -> str:
         combination may be used as a linear classifier, or, more commonly, for dimensionality 
         reduction before later classification.
         """
-    elif plot_type == PLOT_QDA_2D:
-        doc = PLOT_QDA_2D + "On 2D PCA"
-    elif plot_type == PLOT_NCA:
+    elif plot_type == amp_consts.PLOT_QDA_2D:
+        doc = amp_consts.PLOT_QDA_2D + "On 2D PCA"
+    elif plot_type == amp_consts.PLOT_NCA:
         doc = """
         **Neighborhood components analysis**  
         A supervised learning method for classifying multivariate data into distinct classes 
@@ -173,7 +143,7 @@ def get_plot_help_digest(plot_type) -> str:
 
 
 def filter_none(value):
-    return None if value == NONE_SELECTED else value
+    return None if value == amp_consts.NONE_SELECTED else value
 
 
 def add_histogram(fig, x, index, name="", marker=None, legend=False):
@@ -214,23 +184,23 @@ def add_2d_hist(fig, x, y, row, col, legend=False):
 
 
 def get_dataframe_from_url(url):
-    if url == PICK_ONE:
+    if url == amp_consts.PICK_ONE:
         return None
     elif isinstance(url, io.StringIO):
         return pd.read_csv(url)
-    elif url == URL_CSSE:
+    elif url == amp_consts.URL_CSSE:
         return get_wrangled_cssegis_df(allow_cache=False)
-    elif url == URL_IRIS:
+    elif url == amp_consts.URL_IRIS:
         return px.data.iris()
-    elif url == URL_CARSHARE:
+    elif url == amp_consts.URL_CARSHARE:
         return px.data.carshare()
-    elif url == URL_GAPMINDER:
+    elif url == amp_consts.URL_GAPMINDER:
         return px.data.gapminder()
-    elif url == URL_TIPS:
+    elif url == amp_consts.URL_TIPS:
         return px.data.tips()
-    elif url == URL_WIND:
+    elif url == amp_consts.URL_WIND:
         return px.data.wind()
-    elif url == URL_ELECTION:
+    elif url == amp_consts.URL_ELECTION:
         return px.data.election()
     elif isinstance(url, str):
         try:
@@ -245,7 +215,7 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
 
     params = dict(**kwargs)
     for k, v in params.items():
-        if v == NONE_SELECTED:
+        if v == amp_consts.NONE_SELECTED:
             params[k] = filter_none(params[k])
     num_columns = df.select_dtypes(include=[np.number]).columns.to_list()
 
@@ -262,20 +232,27 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
         else:
             afc = time_column
         params["animation_frame"] = afc
+        df = df.sort_values([afc])
         if plot_type not in [
-            PLOT_PCA_3D,
-            PLOT_PCA_2D,
-            PLOT_LDA_2D,
-            PLOT_QDA_2D,
-            PLOT_NCA,
+            amp_consts.PLOT_PCA_3D,
+            amp_consts.PLOT_PCA_2D,
+            amp_consts.PLOT_LDA_2D,
+            amp_consts.PLOT_QDA_2D,
+            amp_consts.PLOT_NCA,
         ]:
             x = params.get("x")
-            params["range_x"] = None if x not in num_columns else [df[x].min(), df[x].max()]
+            params["range_x"] = (
+                None if x not in num_columns else [df[x].min(), df[x].max()]
+            )
             y = params.get("y")
-            params["range_y"] = None if y not in num_columns else [df[y].min(), df[y].max()]
-            if plot_type == PLOT_SCATTER_3D:
+            params["range_y"] = (
+                None if y not in num_columns else [df[y].min(), df[y].max()]
+            )
+            if plot_type in [amp_consts.PLOT_SCATTER_3D, amp_consts.PLOT_PCA_3D]:
                 z = params.get("z")
-                params["range_z"] = None if z not in num_columns else [df[z].min(), df[z].max()]
+                params["range_z"] = (
+                    None if z not in num_columns else [df[z].min(), df[z].max()]
+                )
 
     params["data_frame"] = df
 
@@ -284,34 +261,34 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
     column_names = None
     class_names = None
 
-    if plot_type == PLOT_SCATTER:
+    if plot_type == amp_consts.PLOT_SCATTER:
         fig = px.scatter(**params)
-    elif plot_type == PLOT_SCATTER_3D:
+    elif plot_type == amp_consts.PLOT_SCATTER_3D:
         fig = px.scatter_3d(**params)
-    elif plot_type == PLOT_LINE:
+    elif plot_type == amp_consts.PLOT_LINE:
         fig = px.line(**params)
-    elif plot_type == PLOT_BAR:
+    elif plot_type == amp_consts.PLOT_BAR:
         fig = px.bar(**params)
-    elif plot_type == PLOT_HISTOGRAM:
+    elif plot_type == amp_consts.PLOT_HISTOGRAM:
         if "orientation" in params and params.get("orientation") == "h":
             params["x"], params["y"] = None, params["x"]
         fig = px.histogram(**params)
-    elif plot_type == PLOT_BOX:
+    elif plot_type == amp_consts.PLOT_BOX:
         fig = px.box(**params)
-    elif plot_type == PLOT_VIOLIN:
+    elif plot_type == amp_consts.PLOT_VIOLIN:
         fig = px.violin(**params)
-    elif plot_type == PLOT_DENSITY_HEATMAP:
+    elif plot_type == amp_consts.PLOT_DENSITY_HEATMAP:
         fig = px.density_heatmap(**params)
-    elif plot_type == PLOT_DENSITY_CONTOUR:
+    elif plot_type == amp_consts.PLOT_DENSITY_CONTOUR:
         fc = params.pop("fill_contours") is True
         fig = px.density_contour(**params)
         if fc:
             fig.update_traces(contours_coloring="fill", contours_showlabels=True)
-    elif plot_type == PLOT_PARALLEL_CATEGORIES:
+    elif plot_type == amp_consts.PLOT_PARALLEL_CATEGORIES:
         fig = px.parallel_categories(**params)
-    elif plot_type == PLOT_PARALLEL_COORDINATES:
+    elif plot_type == amp_consts.PLOT_PARALLEL_COORDINATES:
         fig = px.parallel_coordinates(**params)
-    elif plot_type == PLOT_SCATTER_MATRIX:
+    elif plot_type == amp_consts.PLOT_SCATTER_MATRIX:
         fig = make_subplots(
             rows=len(num_columns),
             cols=len(num_columns),
@@ -378,7 +355,9 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
                     elif mtx_plot_kind == "2D histogram":
                         add_2d_hist(fig=fig, x=df[c], y=df[l], row=j + 1, col=i + 1)
                 else:
-                    for color_parse, cat in zip(template_colors, df[color_column].unique()):
+                    for color_parse, cat in zip(
+                        template_colors, df[color_column].unique()
+                    ):
                         df_cat = df[df[color_column] == cat]
                         if mtx_plot_kind == "Histogram":
                             add_histogram(
@@ -409,7 +388,7 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
                         title_text=l, row=j + 1, col=i + 1,
                     )
         fig.update_layout(barmode="stack")
-    elif plot_type in [PLOT_PCA_2D, PLOT_PCA_3D]:
+    elif plot_type in [amp_consts.PLOT_PCA_2D, amp_consts.PLOT_PCA_3D]:
         X = df.loc[:, num_columns]
         ignored_columns = params.pop("ignore_columns", [])
         if ignored_columns:
@@ -433,7 +412,8 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
         if is_anim:
             params["range_x"] = [-1, 1]
             params["range_y"] = [-1, 1]
-        if plot_type in [PLOT_PCA_3D]:
+        sl = params.pop("show_loadings") is True
+        if plot_type in [amp_consts.PLOT_PCA_3D]:
             z = x_new[:, 2]
             pc3_lbl = f"PC3 ({model_data.explained_variance_ratio_[2] * 100:.2f}%)"
             df[pc3_lbl] = z * (1.0 / (z.max() - z.min()))
@@ -441,32 +421,70 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
             if is_anim:
                 params["range_z"] = [-1, 1]
             fig = px.scatter_3d(**params)
-        else:
-            sl = params.pop("show_loadings") is True
-            fig = px.scatter(**params)
             if sl:
-                coeff = np.transpose(model_data.components_[0:2, :])
-                for i in range(coeff.shape[0]):
-                    fig.add_shape(
-                        type="line",
-                        opacity=0.5,
-                        x0=0,
-                        y0=0,
-                        x1=coeff[i, 0],
-                        y1=coeff[i, 1],
-                        line=dict(width=2),
-                    )
+                loadings = np.transpose(model_data.components_[0:3, :])
+                m = 1 / np.amax(loadings)
+                loadings = loadings * m
+                xc, yc, zc = [], [], []
+                for i in range(loadings.shape[0]):
+                    xc.extend([0, loadings[i, 0], None])
+                    yc.extend([0, loadings[i, 1], None])
+                    zc.extend([0, loadings[i, 2], None])
                 fig.add_trace(
-                    go.Scatter(
-                        x=coeff[:, 0],
-                        y=coeff[:, 1],
-                        mode="markers+text",
+                    go.Scatter3d(
+                        x=xc,
+                        y=yc,
+                        z=zc,
+                        mode="lines",
+                        name="Loadings",
+                        showlegend=False,
+                        line=dict(color="black"),
+                        opacity=0.3,
+                    )
+                )
+                fig.add_trace(
+                    go.Scatter3d(
+                        x=loadings[:, 0],
+                        y=loadings[:, 1],
+                        z=loadings[:, 2],
+                        mode="text",
                         text=num_columns,
-                        opacity=0.8,
+                        opacity=0.7,
                         name="Loadings",
                     ),
                 )
-    elif plot_type in [PLOT_LDA_2D, PLOT_QDA_2D]:
+        else:
+            fig = px.scatter(**params)
+            if sl:
+                loadings = np.transpose(model_data.components_[0:2, :])
+                m = 1 / np.amax(loadings)
+                loadings = loadings * m
+                xc, yc = [], []
+                for i in range(loadings.shape[0]):
+                    xc.extend([0, loadings[i, 0], None])
+                    yc.extend([0, loadings[i, 1], None])
+                fig.add_trace(
+                    go.Scatter(
+                        x=xc,
+                        y=yc,
+                        mode="lines",
+                        name="Loadings",
+                        showlegend=False,
+                        line=dict(color="black"),
+                        opacity=0.3,
+                    )
+                )
+                fig.add_trace(
+                    go.Scatter(
+                        x=loadings[:, 0],
+                        y=loadings[:, 1],
+                        mode="text",
+                        text=num_columns,
+                        opacity=0.7,
+                        name="Loadings",
+                    ),
+                )
+    elif plot_type in [amp_consts.PLOT_LDA_2D, amp_consts.PLOT_QDA_2D]:
         X = df.loc[:, num_columns]
         ignored_columns = params.pop("ignore_columns", [])
         if ignored_columns:
@@ -484,9 +502,9 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
         scaler = StandardScaler()
         scaler.fit(X)
         X = scaler.transform(X)
-        if plot_type == PLOT_LDA_2D:
+        if plot_type == amp_consts.PLOT_LDA_2D:
             model_data = LinearDiscriminantAnalysis(solver=params.pop("solver", "svd"))
-        elif plot_type == PLOT_QDA_2D:
+        elif plot_type == amp_consts.PLOT_QDA_2D:
             model_data = QuadraticDiscriminantAnalysis(store_covariance=True)
         x_new = model_data.fit(X, y=t).transform(X)
         pc1_lbl = f"PC1 ({model_data.explained_variance_ratio_[0] * 100:.2f}%)"
@@ -502,7 +520,7 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
             params["range_y"] = [-1, 1]
         params.pop("target")
         fig = px.scatter(**params)
-    elif plot_type in [PLOT_NCA]:
+    elif plot_type in [amp_consts.PLOT_NCA]:
         X = df.loc[:, num_columns]
         ignored_columns = params.pop("ignore_columns", [])
         if ignored_columns:
@@ -534,7 +552,7 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
             params["range_y"] = [-1, 1]
         params.pop("target")
         fig = px.scatter(**params)
-    elif plot_type == PLOT_CORR_MATRIX:
+    elif plot_type == amp_consts.PLOT_CORR_MATRIX:
         fig = px.imshow(
             df[num_columns].corr(method=params.get("corr_method")).values,
             x=num_columns,
@@ -542,6 +560,9 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
         )
     else:
         fig = None
+
+    if plot_type in amp_consts.PLOT_IS_3D:
+        fig.update_layout(scene={"aspectmode": "cube"})
 
     if fig is not None:
         fig.update_layout(
