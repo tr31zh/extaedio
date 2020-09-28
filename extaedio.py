@@ -117,7 +117,8 @@ def wrangle_the_data(df, dw_options):
     # Sort
     if dw_options["sort_columns"]:
         df = df.sort_values(
-            dw_options["sort_columns"], ascending=not dw_options["invert_sort"],
+            dw_options["sort_columns"],
+            ascending=not dw_options["invert_sort"],
         )
 
     # Filter columns
@@ -266,7 +267,8 @@ def customize_plot():
         show_advanced_plots = False
     else:
         show_advanced_plots = st.checkbox(
-            label="Show advanced plots.", value=report.get("show_advanced_plots", False)
+            label="Show advanced plots.",
+            value=report.get("show_advanced_plots", ui_mode == "all_choices"),
         )
         if show_info:
             st.info(
@@ -304,7 +306,7 @@ def customize_plot():
     else:
         show_advanced_settings = st.checkbox(
             label="Show plot advanced parameters",
-            value=report.get("show_advanced_settings", False),
+            value=report.get("show_advanced_settings", ui_mode == "all_choices"),
         )
         if show_info:
             st.info(
@@ -316,7 +318,8 @@ def customize_plot():
 
     if ui_mode == "all_choices":
         force_wide_mode = st.checkbox(
-            label="Force wide display", value=report.get("force_wide_mode", True),
+            label="Force wide display",
+            value=report.get("force_wide_mode", True),
         )
     else:
         force_wide_mode = True
@@ -332,7 +335,6 @@ def customize_plot():
 
     if "dataframe" in report:
         df = pd.DataFrame.from_dict(report.get("dataframe", {}))
-        selected_file = None
         dw_options = {}
     else:
         df = amp_st_functs.load_dataframe(step=step, show_info=show_info)
@@ -703,15 +705,18 @@ def customize_plot():
 
     # Ignored columns
     if plot_type in amp_consts.PLOT_HAS_IGNORE_COLUMNS:
+        default_ignored_columns = (
+            [plot_data_dict["target"]] if plot_type in amp_consts.PLOT_HAS_TARGET else []
+        )
+        if is_anim:
+            default_ignored_columns.append(plot_data_dict["time_column"])
         plot_data_dict["ignore_columns"] = param_initializer(
             widget_type="multiselect",
             param_name="ignore_columns",
             widget_params=dict(
                 label="Ignore this columns when building the model:",
                 options=all_columns,
-                default=[plot_data_dict["target"]]
-                if plot_type in amp_consts.PLOT_HAS_TARGET
-                else [],
+                default=default_ignored_columns,
             ),
             doc_override="""
                 This columns will be omitted when building the model, 
@@ -946,7 +951,8 @@ def customize_plot():
         # Violin plots
         if plot_type == amp_consts.PLOT_VIOLIN:
             plot_data_dict["box"] = param_initializer(
-                param_name="box", widget_params=dict(label="Show boxes", value=False),
+                param_name="box",
+                widget_params=dict(label="Show boxes", value=False),
             )
             plot_data_dict["violinmode"] = param_initializer(
                 param_name="violinmode",
@@ -1198,7 +1204,7 @@ def customize_plot():
             ).decode()
             href = f"""<a href="data:file/json;base64,{b64}" download="plot_configuration.json">
             Download plot parameters as JSON file</a> 
-            - right-click and save as &lt;some_name&gt;.html"""
+            - right-click and save as &lt;some_name&gt;.json"""
             st.markdown(href, unsafe_allow_html=True)
             st.markdown("")
 
@@ -1217,10 +1223,18 @@ def customize_plot():
                 df_ev = df_ev.assign(cumulative=df_ev["exp_var_per"].cumsum())
                 ev_fig = go.Figure()
                 ev_fig.add_trace(
-                    go.Bar(x=df_ev["pc"], y=df_ev["exp_var_per"], name="individual",)
+                    go.Bar(
+                        x=df_ev["pc"],
+                        y=df_ev["exp_var_per"],
+                        name="individual",
+                    )
                 )
                 ev_fig.add_trace(
-                    go.Scatter(x=df_ev["pc"], y=df_ev["cumulative"], name="cumulative",)
+                    go.Scatter(
+                        x=df_ev["pc"],
+                        y=df_ev["cumulative"],
+                        name="cumulative",
+                    )
                 )
                 ev_fig.update_layout(
                     height=plot_data_dict["height"],
