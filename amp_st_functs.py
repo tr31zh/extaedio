@@ -32,7 +32,7 @@ def load_dataframe(step: int, show_info):
     )
     return_selected_file = selected_file != amp_consts.URL_LOCAL_FILE
     if selected_file == amp_consts.URL_LOCAL_FILE:
-        st.set_option("deprecation.showfileUploaderEncoding", False)
+        # st.set_option("deprecation.showfileUploaderEncoding", False)
         selected_file = st.file_uploader(
             label="Select file to upload",
             type=["csv"],
@@ -42,8 +42,6 @@ def load_dataframe(step: int, show_info):
             return None
         if isinstance(selected_file, st.uploaded_file_manager.UploadedFile):
             selected_file = selected_file.read()
-            print(type(selected_file).__name__)
-        # selected_file = io.TextIOWrapper(selected_file)
     elif selected_file == amp_consts.URL_DISTANT_FILE:
         selected_file = st.text_input(label="Paste web URL", value="")
         st.write(selected_file)
