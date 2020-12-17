@@ -36,7 +36,6 @@ def load_dataframe(step: int, show_info):
         selected_file = st.file_uploader(
             label="Select file to upload",
             type=["csv"],
-            accept_multiple_files=False,
         )
         if selected_file is None:
             return None
