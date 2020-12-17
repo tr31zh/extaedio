@@ -176,7 +176,12 @@ def add_scatter(fig, x, y, row, col, marker=None, opacity=0.5, legend=False, nam
 def add_2d_hist(fig, x, y, row, col, legend=False):
     fig.add_trace(
         go.Histogram2dContour(
-            x=x, y=y, reversescale=True, xaxis="x", yaxis="y", showlegend=legend,
+            x=x,
+            y=y,
+            reversescale=True,
+            xaxis="x",
+            yaxis="y",
+            showlegend=legend,
         ),
         row=row,
         col=col,
@@ -205,6 +210,11 @@ def get_dataframe_from_url(url):
     elif isinstance(url, str):
         try:
             return pd.read_csv(url)
+        except:
+            return None
+    elif isinstance(url, bytes):
+        try:
+            return pd.read_csv(io.BytesIO(url), encoding="utf8")
         except:
             return None
     else:
@@ -350,7 +360,11 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
                         add_histogram(fig=fig, x=df[c], index=i + 1)
                     elif mtx_plot_kind == "Scatter":
                         add_scatter(
-                            fig=fig, x=df[c], y=df[l], row=j + 1, col=i + 1,
+                            fig=fig,
+                            x=df[c],
+                            y=df[l],
+                            row=j + 1,
+                            col=i + 1,
                         )
                     elif mtx_plot_kind == "2D histogram":
                         add_2d_hist(fig=fig, x=df[c], y=df[l], row=j + 1, col=i + 1)
@@ -381,11 +395,15 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
                             )
                     legend_added = True
                 fig.update_xaxes(
-                    title_text=c, row=j + 1, col=i + 1,
+                    title_text=c,
+                    row=j + 1,
+                    col=i + 1,
                 )
                 if c == 0:
                     fig.update_yaxes(
-                        title_text=l, row=j + 1, col=i + 1,
+                        title_text=l,
+                        row=j + 1,
+                        col=i + 1,
                     )
         fig.update_layout(barmode="stack")
     elif plot_type in [amp_consts.PLOT_PCA_2D, amp_consts.PLOT_PCA_3D]:

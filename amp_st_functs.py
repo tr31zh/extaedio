@@ -1,5 +1,6 @@
 import pandas as pd
 import re
+import io
 
 import streamlit as st
 
@@ -31,9 +32,18 @@ def load_dataframe(step: int, show_info):
     )
     return_selected_file = selected_file != amp_consts.URL_LOCAL_FILE
     if selected_file == amp_consts.URL_LOCAL_FILE:
-        selected_file = st.file_uploader(label="Select file to upload")
+        st.set_option("deprecation.showfileUploaderEncoding", False)
+        selected_file = st.file_uploader(
+            label="Select file to upload",
+            type=["csv"],
+            accept_multiple_files=False,
+        )
         if selected_file is None:
             return None
+        if isinstance(selected_file, st.uploaded_file_manager.UploadedFile):
+            selected_file = selected_file.read()
+            print(type(selected_file).__name__)
+        # selected_file = io.TextIOWrapper(selected_file)
     elif selected_file == amp_consts.URL_DISTANT_FILE:
         selected_file = st.text_input(label="Paste web URL", value="")
         st.write(selected_file)
@@ -83,7 +93,10 @@ def set_anim_data(df, show_info: bool, plot_data_dict: dict, param_initializer, 
     )
     if plot_data_dict["time_column"] != amp_consts.PICK_ONE and (
         is_default_time_col
-        or qs.checkbox(label="Convert to date?", value=is_default_time_col,)
+        or qs.checkbox(
+            label="Convert to date?",
+            value=is_default_time_col,
+        )
     ):
         try:
             cf_columns = [c.casefold() for c in df.columns.to_list()]

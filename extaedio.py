@@ -98,7 +98,7 @@ class ParamInitializer(object):
 
 
 def _max_width_():
-    max_width_str = f"max-width: 2000px;"
+    max_width_str = f"max-width: 100%;"
     st.markdown(
         f"""
     <style>
@@ -538,7 +538,9 @@ def customize_plot():
 
     qs.subheader("Basic parameters")
     num_columns = df.select_dtypes(include=[np.number]).columns.to_list()
-    cat_columns = df.select_dtypes(include=["object", "datetime"]).columns.to_list()
+    cat_columns = df.select_dtypes(
+        include=["object", "datetime", "int64"]
+    ).columns.to_list()
     supervision_columns = df.select_dtypes(include=["object", "number"]).columns.to_list()
     all_columns = df.columns.to_list()
 
@@ -912,7 +914,13 @@ def customize_plot():
             plot_data_dict["barmode"] = param_initializer(
                 param_name="barmode",
                 widget_params=dict(
-                    label="bar mode", options=["group", "overlay", "relative"], index=2
+                    label="bar mode",
+                    options=[
+                        "group",
+                        "overlay",
+                        "relative",
+                    ],
+                    index=2,
                 ),
             )
         if plot_type in amp_consts.PLOT_HAS_MARGINAL_XY and is_anim:
@@ -952,7 +960,11 @@ def customize_plot():
         if plot_type == amp_consts.PLOT_VIOLIN:
             plot_data_dict["box"] = param_initializer(
                 param_name="box",
-                widget_params=dict(label="Show boxes", value=False),
+                widget_type="checkbox",
+                widget_params=dict(
+                    label="Show boxes",
+                    value=False,
+                ),
             )
             plot_data_dict["violinmode"] = param_initializer(
                 param_name="violinmode",
