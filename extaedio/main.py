@@ -61,6 +61,8 @@ class ParamInitializer(object):
                         key=param_name,
                         overrides=self._overrides,
                     )
+                if "options" in widget_params and "default" in widget_params:
+                    widget_params["default"] = self._overrides[param_name]
                 elif "value" in widget_params:
                     widget_params["value"] = self._overrides[param_name]
 
@@ -385,7 +387,9 @@ def customize_plot():
             )
         filter_columns = st.multiselect(
             label="Select which columns you want to use to filter the rows:",
-            options=df.select_dtypes(include=["object", "datetime"]).columns.to_list(),
+            options=df.select_dtypes(
+                include=["object", "datetime", "number"]
+            ).columns.to_list(),
             default=None,
         )
         if filter_columns and show_info:
@@ -1136,6 +1140,7 @@ def customize_plot():
             )(plot_type),
             value=report.get("show_additional_model_data", False),
         )
+        show_class_means = st.checkbox(label="Class means", value=False)
     else:
         show_variance_ratio = False
         show_additional_model_data = False
@@ -1214,10 +1219,10 @@ def customize_plot():
                     else None,
                 ).encode("utf-8")
             ).decode()
-            href = f"""<a href="data:file/json;base64,{b64}" download="plot_configuration.json">
-            Download plot parameters as JSON file</a> 
-            - right-click and save as &lt;some_name&gt;.json"""
-            st.markdown(href, unsafe_allow_html=True)
+            st.markdown(
+                f"""<a href="data:file/json;base64,{b64}" download="plot_configuration.json">Download plot parameters as JSON file</a>""",
+                unsafe_allow_html=True,
+            )
             st.markdown("")
 
         if "model_data" in fig_data:
@@ -1273,7 +1278,7 @@ def customize_plot():
                 hasattr(model_data, "means_")
                 and "class_names" in fig_data
                 and "column_names" in fig_data
-                and st.checkbox(label="Class means", value=False)
+                and show_class_means
             ):
                 st.write(
                     pd.DataFrame.from_dict(
@@ -1283,7 +1288,7 @@ def customize_plot():
                                 fig_data["column_names"], model_data.means_.T
                             )
                         }
-                    ).set_index(pd.Series(fig_data["class_names"]))
+                    )
                 )
     else:
         st.warning("No plot")

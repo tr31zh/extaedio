@@ -537,7 +537,37 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
             params["range_x"] = [-1, 1]
             params["range_y"] = [-1, 1]
         params.pop("target")
+        sl = params.pop("show_loadings") is True
         fig = px.scatter(**params)
+        if sl:
+            loadings = np.transpose(model_data.coef_[0:2, :])
+            m = 1 / np.amax(loadings)
+            loadings = loadings * m
+            xc, yc = [], []
+            for i in range(loadings.shape[0]):
+                xc.extend([0, loadings[i, 0], None])
+                yc.extend([0, loadings[i, 1], None])
+            fig.add_trace(
+                go.Scatter(
+                    x=xc,
+                    y=yc,
+                    mode="lines",
+                    name="Loadings",
+                    showlegend=False,
+                    line=dict(color="black"),
+                    opacity=0.3,
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=loadings[:, 0],
+                    y=loadings[:, 1],
+                    mode="text",
+                    text=num_columns,
+                    opacity=0.7,
+                    name="Loadings",
+                ),
+            )
     elif plot_type in [amp_consts.PLOT_NCA]:
         X = df.loc[:, num_columns]
         ignored_columns = params.pop("ignore_columns", [])
