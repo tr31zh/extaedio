@@ -618,6 +618,16 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
             template=params["template"],
             legend={"traceorder": "normal"},
         )
+        if ("size" not in params) or (
+            (params["size"] is None) or (params["size"] == amp_consts.NONE_SELECTED)
+        ):
+            fig.update_traces(
+                marker=dict(
+                    size=12,
+                    line=dict(width=2, color="DarkSlateGrey"),
+                ),
+                selector=dict(mode="markers"),
+            )
 
     return {
         k: v

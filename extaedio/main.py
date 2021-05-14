@@ -11,9 +11,9 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.io as pio
 
-import amp_consts
-import amp_st_functs
-from amp_functs import (
+import extaedio.amp_consts
+import extaedio.amp_st_functs
+from extaedio.amp_functs import (
     build_plot,
     get_plot_help_digest,
     get_plot_docstring,
@@ -70,13 +70,13 @@ class ParamInitializer(object):
         else:
             ret = None
 
-        if ret == amp_consts.PICK_ONE:
+        if ret == extaedio.amp_consts.PICK_ONE:
             self._parent.warning(
                 f"Please pic a column for the {widget_params.get('label', 'previous parameter')}."
             )
 
         if (self._show_help == "all") or (
-            (self._show_help == "mandatory") and (ret == amp_consts.PICK_ONE)
+            (self._show_help == "mandatory") and (ret == extaedio.amp_consts.PICK_ONE)
         ):
             self.print_help(
                 param_name=param_name,
@@ -339,7 +339,7 @@ def customize_plot():
         df = pd.DataFrame.from_dict(report.get("dataframe", {}))
         dw_options = {}
     else:
-        df = amp_st_functs.load_dataframe(step=step, show_info=show_info)
+        df = extaedio.amp_st_functs.load_dataframe(step=step, show_info=show_info)
         step += 1
     if df is None:
         return
@@ -465,7 +465,11 @@ def customize_plot():
     qs.subheader("Plot selection")
 
     # Select type
-    plot_options = amp_consts.ALL_PLOTS if show_advanced_plots else amp_consts.BASIC_PLOTS
+    plot_options = (
+        extaedio.amp_consts.ALL_PLOTS
+        if show_advanced_plots
+        else extaedio.amp_consts.BASIC_PLOTS
+    )
     plot_type = qs.selectbox(
         label="Plot type: ",
         options=plot_options,
@@ -479,7 +483,7 @@ def customize_plot():
     step += 1
 
     st.write(get_plot_help_digest(plot_type))
-    if plot_type in [amp_consts.PLOT_LDA_2D, amp_consts.PLOT_NCA]:
+    if plot_type in [extaedio.amp_consts.PLOT_LDA_2D, extaedio.amp_consts.PLOT_NCA]:
         qs.warning(
             "If plotting fails, make sure that no variable is colinear with your target"
         )
@@ -510,7 +514,7 @@ def customize_plot():
     is_anim = (
         report.get("is_anim", False)
         if report
-        else plot_type in amp_consts.PLOT_HAS_ANIM
+        else plot_type in extaedio.amp_consts.PLOT_HAS_ANIM
         and qs.checkbox(label="Build animation", value=False)
     )
 
@@ -526,13 +530,13 @@ def customize_plot():
                 param_name="animation_group",
                 widget_params=dict(
                     label="Animation category group",
-                    options=[amp_consts.NONE_SELECTED]
+                    options=[extaedio.amp_consts.NONE_SELECTED]
                     + df.select_dtypes(include=["object", "datetime"]).columns.to_list(),
                     index=0,
                 ),
             )
         else:
-            amp_st_functs.set_anim_data(
+            extaedio.amp_st_functs.set_anim_data(
                 df=df,
                 show_info=show_info,
                 plot_data_dict=plot_data_dict,
@@ -548,58 +552,58 @@ def customize_plot():
     supervision_columns = df.select_dtypes(include=["object", "number"]).columns.to_list()
     all_columns = df.columns.to_list()
 
-    if plot_type in amp_consts.PLOT_HAS_X:
-        if plot_type in [amp_consts.PLOT_SCATTER, amp_consts.PLOT_LINE]:
-            x_columns = [amp_consts.PICK_ONE] + all_columns
-        elif plot_type in [amp_consts.PLOT_SCATTER_3D]:
-            x_columns = [amp_consts.PICK_ONE] + all_columns
-        elif plot_type in [amp_consts.PLOT_BAR]:
-            x_columns = [amp_consts.PICK_ONE] + cat_columns
-        elif plot_type in [amp_consts.PLOT_BOX, amp_consts.PLOT_VIOLIN]:
-            x_columns = [amp_consts.NONE_SELECTED] + cat_columns
-        elif plot_type == amp_consts.PLOT_HISTOGRAM:
-            x_columns = [amp_consts.PICK_ONE] + all_columns
+    if plot_type in extaedio.amp_consts.PLOT_HAS_X:
+        if plot_type in [extaedio.amp_consts.PLOT_SCATTER, extaedio.amp_consts.PLOT_LINE]:
+            x_columns = [extaedio.amp_consts.PICK_ONE] + all_columns
+        elif plot_type in [extaedio.amp_consts.PLOT_SCATTER_3D]:
+            x_columns = [extaedio.amp_consts.PICK_ONE] + all_columns
+        elif plot_type in [extaedio.amp_consts.PLOT_BAR]:
+            x_columns = [extaedio.amp_consts.PICK_ONE] + cat_columns
+        elif plot_type in [extaedio.amp_consts.PLOT_BOX, extaedio.amp_consts.PLOT_VIOLIN]:
+            x_columns = [extaedio.amp_consts.NONE_SELECTED] + cat_columns
+        elif plot_type == extaedio.amp_consts.PLOT_HISTOGRAM:
+            x_columns = [extaedio.amp_consts.PICK_ONE] + all_columns
         elif plot_type in [
-            amp_consts.PLOT_DENSITY_HEATMAP,
-            amp_consts.PLOT_DENSITY_CONTOUR,
+            extaedio.amp_consts.PLOT_DENSITY_HEATMAP,
+            extaedio.amp_consts.PLOT_DENSITY_CONTOUR,
         ]:
-            x_columns = [amp_consts.PICK_ONE] + num_columns
+            x_columns = [extaedio.amp_consts.PICK_ONE] + num_columns
         else:
             x_columns = []
     else:
         x_columns = []
 
-    if plot_type in amp_consts.PLOT_HAS_Y:
-        if plot_type in [amp_consts.PLOT_SCATTER, amp_consts.PLOT_LINE]:
-            y_columns = [amp_consts.PICK_ONE] + all_columns
-        elif plot_type in [amp_consts.PLOT_SCATTER_3D]:
-            y_columns = [amp_consts.PICK_ONE] + all_columns
-        elif plot_type in [amp_consts.PLOT_BAR]:
-            y_columns = [amp_consts.PICK_ONE] + all_columns
-        elif plot_type in [amp_consts.PLOT_BOX, amp_consts.PLOT_VIOLIN]:
-            y_columns = [amp_consts.PICK_ONE] + all_columns
-        elif plot_type == amp_consts.PLOT_HISTOGRAM:
-            y_columns = [amp_consts.PICK_ONE] + all_columns
+    if plot_type in extaedio.amp_consts.PLOT_HAS_Y:
+        if plot_type in [extaedio.amp_consts.PLOT_SCATTER, extaedio.amp_consts.PLOT_LINE]:
+            y_columns = [extaedio.amp_consts.PICK_ONE] + all_columns
+        elif plot_type in [extaedio.amp_consts.PLOT_SCATTER_3D]:
+            y_columns = [extaedio.amp_consts.PICK_ONE] + all_columns
+        elif plot_type in [extaedio.amp_consts.PLOT_BAR]:
+            y_columns = [extaedio.amp_consts.PICK_ONE] + all_columns
+        elif plot_type in [extaedio.amp_consts.PLOT_BOX, extaedio.amp_consts.PLOT_VIOLIN]:
+            y_columns = [extaedio.amp_consts.PICK_ONE] + all_columns
+        elif plot_type == extaedio.amp_consts.PLOT_HISTOGRAM:
+            y_columns = [extaedio.amp_consts.PICK_ONE] + all_columns
         elif plot_type in [
-            amp_consts.PLOT_DENSITY_HEATMAP,
-            amp_consts.PLOT_DENSITY_CONTOUR,
+            extaedio.amp_consts.PLOT_DENSITY_HEATMAP,
+            extaedio.amp_consts.PLOT_DENSITY_CONTOUR,
         ]:
-            y_columns = [amp_consts.PICK_ONE] + num_columns
+            y_columns = [extaedio.amp_consts.PICK_ONE] + num_columns
         else:
             y_columns = []
     else:
         y_columns = []
 
-    if plot_type in amp_consts.PLOT_HAS_Z:
-        if plot_type in [amp_consts.PLOT_SCATTER_3D]:
-            z_columns = [amp_consts.PICK_ONE] + all_columns
+    if plot_type in extaedio.amp_consts.PLOT_HAS_Z:
+        if plot_type in [extaedio.amp_consts.PLOT_SCATTER_3D]:
+            z_columns = [extaedio.amp_consts.PICK_ONE] + all_columns
         else:
             z_columns = []
     else:
         z_columns = []
 
     # Customize X axis
-    if plot_type in amp_consts.PLOT_HAS_X:
+    if plot_type in extaedio.amp_consts.PLOT_HAS_X:
         plot_data_dict["x"] = param_initializer(
             param_name="x",
             widget_params=dict(label="X axis", options=x_columns, index=0),
@@ -609,9 +613,9 @@ def customize_plot():
             and plot_data_dict["x"] in num_columns
             and plot_type
             not in [
-                amp_consts.PLOT_PARALLEL_CATEGORIES,
-                amp_consts.PLOT_PARALLEL_COORDINATES,
-                amp_consts.PLOT_SCATTER_MATRIX,
+                extaedio.amp_consts.PLOT_PARALLEL_CATEGORIES,
+                extaedio.amp_consts.PLOT_PARALLEL_COORDINATES,
+                extaedio.amp_consts.PLOT_SCATTER_MATRIX,
             ]
         ):
             plot_data_dict["log_x"] = param_initializer(
@@ -619,10 +623,10 @@ def customize_plot():
                 param_name="log_x",
                 widget_params=dict(label="Log X axis?"),
             )
-        if plot_data_dict["x"] == amp_consts.PICK_ONE:
+        if plot_data_dict["x"] == extaedio.amp_consts.PICK_ONE:
             return
 
-    if plot_type == amp_consts.PLOT_HISTOGRAM:
+    if plot_type == extaedio.amp_consts.PLOT_HISTOGRAM:
         plot_data_dict["histfunc"] = param_initializer(
             param_name="histfunc",
             widget_params=dict(
@@ -637,7 +641,7 @@ def customize_plot():
                 }.get(x, "Unknown histogram mode"),
             ),
         )
-    elif plot_type in amp_consts.PLOT_HAS_Y:
+    elif plot_type in extaedio.amp_consts.PLOT_HAS_Y:
         # Customize Y axis
         plot_data_dict["y"] = param_initializer(
             param_name="y",
@@ -648,9 +652,9 @@ def customize_plot():
             and plot_data_dict["y"] in num_columns
             and plot_type
             not in [
-                amp_consts.PLOT_PARALLEL_CATEGORIES,
-                amp_consts.PLOT_PARALLEL_COORDINATES,
-                amp_consts.PLOT_SCATTER_MATRIX,
+                extaedio.amp_consts.PLOT_PARALLEL_CATEGORIES,
+                extaedio.amp_consts.PLOT_PARALLEL_COORDINATES,
+                extaedio.amp_consts.PLOT_SCATTER_MATRIX,
             ]
         ):
             plot_data_dict["log_y"] = param_initializer(
@@ -658,10 +662,10 @@ def customize_plot():
                 param_name="log_y",
                 widget_params=dict(label="Log Y axis?"),
             )
-        if plot_data_dict["y"] == amp_consts.PICK_ONE:
+        if plot_data_dict["y"] == extaedio.amp_consts.PICK_ONE:
             return
 
-    if plot_type == amp_consts.PLOT_SCATTER_3D:
+    if plot_type == extaedio.amp_consts.PLOT_SCATTER_3D:
         plot_data_dict["z"] = param_initializer(
             param_name="z",
             widget_params=dict(label="Z axis", options=z_columns, index=0),
@@ -674,20 +678,20 @@ def customize_plot():
             )
         else:
             plot_data_dict["log_z"] = False
-        if plot_data_dict["z"] == amp_consts.PICK_ONE:
+        if plot_data_dict["z"] == extaedio.amp_consts.PICK_ONE:
             return
 
     # Target for supervised machine learning
-    if plot_type in amp_consts.PLOT_HAS_TARGET:
+    if plot_type in extaedio.amp_consts.PLOT_HAS_TARGET:
         plot_data_dict["target"] = param_initializer(
             param_name="target",
             widget_params=dict(
                 label="ML target:",
-                options=[amp_consts.PICK_ONE] + supervision_columns,
+                options=[extaedio.amp_consts.PICK_ONE] + supervision_columns,
                 index=0,
             ),
         )
-        if plot_data_dict["target"] == amp_consts.PICK_ONE:
+        if plot_data_dict["target"] == extaedio.amp_consts.PICK_ONE:
             return
         elif (
             plot_data_dict["target"]
@@ -697,22 +701,24 @@ def customize_plot():
             qs.info("Non discrete columns will be rounded")
 
     # Color column
-    if plot_type in amp_consts.PLOT_HAS_COLOR:
+    if plot_type in extaedio.amp_consts.PLOT_HAS_COLOR:
         plot_data_dict["color"] = param_initializer(
             param_name="color",
             widget_params=dict(
                 label="Use this column for color:",
-                options=[amp_consts.NONE_SELECTED] + all_columns,
+                options=[extaedio.amp_consts.NONE_SELECTED] + all_columns,
                 index=0
-                if plot_type not in amp_consts.PLOT_HAS_TARGET
+                if plot_type not in extaedio.amp_consts.PLOT_HAS_TARGET
                 else all_columns.index(plot_data_dict["target"]) + 1,
             ),
         )
 
     # Ignored columns
-    if plot_type in amp_consts.PLOT_HAS_IGNORE_COLUMNS:
+    if plot_type in extaedio.amp_consts.PLOT_HAS_IGNORE_COLUMNS:
         default_ignored_columns = (
-            [plot_data_dict["target"]] if plot_type in amp_consts.PLOT_HAS_TARGET else []
+            [plot_data_dict["target"]]
+            if plot_type in extaedio.amp_consts.PLOT_HAS_TARGET
+            else []
         )
         if is_anim:
             default_ignored_columns.append(plot_data_dict["time_column"])
@@ -734,14 +740,14 @@ def customize_plot():
         qs.subheader("Advanced parameters:")
         # Common data
         available_marginals = [
-            amp_consts.NONE_SELECTED,
+            extaedio.amp_consts.NONE_SELECTED,
             "rug",
             "box",
             "violin",
             "histogram",
         ]
         # Solver selection
-        if plot_type in amp_consts.PLOT_HAS_SOLVER:
+        if plot_type in extaedio.amp_consts.PLOT_HAS_SOLVER:
             plot_data_dict["solver"] = param_initializer(
                 param_name="solver",
                 widget_params=dict(
@@ -755,7 +761,7 @@ def customize_plot():
                 ),
             )
         # About NCA
-        if plot_type in amp_consts.PLOT_HAS_NCOMP:
+        if plot_type in extaedio.amp_consts.PLOT_HAS_NCOMP:
             plot_data_dict["n_components"] = param_initializer(
                 widget_type="number_input",
                 param_name="n_components",
@@ -766,7 +772,7 @@ def customize_plot():
                     value=2,
                 ),
             )
-        if plot_type in amp_consts.PLOT_HAS_INIT:
+        if plot_type in extaedio.amp_consts.PLOT_HAS_INIT:
             plot_data_dict["init"] = param_initializer(
                 param_name="init",
                 widget_params=dict(
@@ -816,22 +822,22 @@ def customize_plot():
                 )
             qs.markdown("___")
         # Dot text
-        if plot_type in amp_consts.PLOT_HAS_TEXT:
+        if plot_type in extaedio.amp_consts.PLOT_HAS_TEXT:
             plot_data_dict["text"] = param_initializer(
                 param_name="text",
                 widget_params=dict(
                     label="Text display column",
-                    options=[amp_consts.NONE_SELECTED] + cat_columns,
+                    options=[extaedio.amp_consts.NONE_SELECTED] + cat_columns,
                     index=0,
                 ),
             )
         # Dot size
-        if plot_type in amp_consts.PLOT_HAS_SIZE:
+        if plot_type in extaedio.amp_consts.PLOT_HAS_SIZE:
             plot_data_dict["size"] = param_initializer(
                 param_name="size",
                 widget_params=dict(
                     label="Use this column to select what dot size represents:",
-                    options=[amp_consts.NONE_SELECTED] + num_columns,
+                    options=[extaedio.amp_consts.NONE_SELECTED] + num_columns,
                     index=0,
                 ),
             )
@@ -842,39 +848,47 @@ def customize_plot():
                     label="Max dot size", min_value=11, max_value=100, value=60
                 ),
             )
-        if plot_type in amp_consts.PLOT_HAS_SHAPE:
+        if plot_type in extaedio.amp_consts.PLOT_HAS_SHAPE:
             plot_data_dict["symbol"] = param_initializer(
                 param_name="symbol",
                 widget_params=dict(
                     label="Select a column for the dot symbols",
-                    options=[amp_consts.NONE_SELECTED] + cat_columns,
+                    options=[extaedio.amp_consts.NONE_SELECTED] + cat_columns,
                     index=0,
                 ),
             )
-        if plot_type in amp_consts.PLOT_HAS_TREND_LINE:
+        if plot_type in extaedio.amp_consts.PLOT_HAS_TREND_LINE:
+            allowed = plot_data_dict["x"] in df.select_dtypes(include=np.number)
+            options = (
+                [extaedio.amp_consts.NONE_SELECTED, "ols", "lowess"]
+                if allowed is True
+                else [extaedio.amp_consts.NONE_SELECTED]
+            )
             plot_data_dict["trendline"] = param_initializer(
                 param_name="trendline",
                 widget_params=dict(
                     label="Trend line mode",
-                    options=[amp_consts.NONE_SELECTED, "ols", "lowess"],
+                    options=options,
                     format_func=lambda x: {
                         "ols": "Ordinary Least Squares ",
                         "lowess": "Locally Weighted scatterplot Smoothing",
                     }.get(x, x),
                 ),
             )
+            if allowed is not True:
+                qs.info("Trend line needs numeric X axis")
 
         # Facet
-        if plot_type in amp_consts.PLOT_HAS_FACET:
+        if plot_type in extaedio.amp_consts.PLOT_HAS_FACET:
             plot_data_dict["facet_col"] = param_initializer(
                 param_name="facet_col",
                 widget_params=dict(
                     label="Use this column to split the plot in columns:",
-                    options=[amp_consts.NONE_SELECTED] + cat_columns,
+                    options=[extaedio.amp_consts.NONE_SELECTED] + cat_columns,
                     index=0,
                 ),
             )
-            if plot_data_dict["facet_col"] != amp_consts.NONE_SELECTED:
+            if plot_data_dict["facet_col"] != extaedio.amp_consts.NONE_SELECTED:
                 plot_data_dict["facet_col_wrap"] = param_initializer(
                     widget_type="number_input",
                     param_name="facet_col_wrap",
@@ -891,12 +905,12 @@ def customize_plot():
                 param_name="facet_row",
                 widget_params=dict(
                     label="Use this column to split the plot in lines:",
-                    options=[amp_consts.NONE_SELECTED] + cat_columns,
+                    options=[extaedio.amp_consts.NONE_SELECTED] + cat_columns,
                     index=0,
                 ),
             )
         # Histogram specific parameters
-        if plot_type in amp_consts.PLOT_HAS_MARGINAL and is_anim:
+        if plot_type in extaedio.amp_consts.PLOT_HAS_MARGINAL and is_anim:
             plot_data_dict["marginal"] = param_initializer(
                 param_name="marginal",
                 widget_params=dict(
@@ -914,7 +928,7 @@ def customize_plot():
                     index=0,
                 ),
             )
-        if plot_type in amp_consts.PLOT_HAS_BAR_MODE:
+        if plot_type in extaedio.amp_consts.PLOT_HAS_BAR_MODE:
             plot_data_dict["barmode"] = param_initializer(
                 param_name="barmode",
                 widget_params=dict(
@@ -927,7 +941,7 @@ def customize_plot():
                     index=2,
                 ),
             )
-        if plot_type in amp_consts.PLOT_HAS_MARGINAL_XY and is_anim:
+        if plot_type in extaedio.amp_consts.PLOT_HAS_MARGINAL_XY and is_anim:
             plot_data_dict["marginal_x"] = param_initializer(
                 param_name="marginal_x",
                 widget_params=dict(
@@ -941,7 +955,7 @@ def customize_plot():
                 ),
             )
         # Box plots and histograms
-        if plot_type in amp_consts.PLOT_HAS_POINTS:
+        if plot_type in extaedio.amp_consts.PLOT_HAS_POINTS:
             plot_data_dict["points"] = param_initializer(
                 param_name="points",
                 widget_params=dict(
@@ -954,14 +968,14 @@ def customize_plot():
                 plot_data_dict["points"] if plot_data_dict["points"] != "none" else False
             )
         # Box plots
-        if plot_type == amp_consts.PLOT_BOX:
+        if plot_type == extaedio.amp_consts.PLOT_BOX:
             plot_data_dict["notched"] = param_initializer(
                 param_name="notched",
                 widget_type="checkbox",
                 widget_params=dict(label="Use notches?", value=False),
             )
         # Violin plots
-        if plot_type == amp_consts.PLOT_VIOLIN:
+        if plot_type == extaedio.amp_consts.PLOT_VIOLIN:
             plot_data_dict["box"] = param_initializer(
                 param_name="box",
                 widget_type="checkbox",
@@ -977,7 +991,7 @@ def customize_plot():
                 ),
             )
         # Density heat map
-        if plot_type in amp_consts.PLOT_HAS_BINS:
+        if plot_type in extaedio.amp_consts.PLOT_HAS_BINS:
             plot_data_dict["nbinsx"] = param_initializer(
                 widget_type="number_input",
                 param_name="nbinsx",
@@ -999,20 +1013,20 @@ def customize_plot():
                 ),
             )
         # Density contour map
-        if plot_type == amp_consts.PLOT_DENSITY_CONTOUR:
+        if plot_type == extaedio.amp_consts.PLOT_DENSITY_CONTOUR:
             plot_data_dict["fill_contours"] = param_initializer(
                 param_name="fill_contours",
                 widget_params=dict(label="Fill contours", value=False),
             )
         # PCA loadings
-        if plot_type in amp_consts.PLOT_HAS_LOADINGS:
+        if plot_type in extaedio.amp_consts.PLOT_HAS_LOADINGS:
             plot_data_dict["show_loadings"] = param_initializer(
                 param_name="show_loadings",
                 widget_type="checkbox",
                 widget_params=dict(label="Show loadings", value=False),
             )
         # Correlation plot
-        if plot_type == amp_consts.PLOT_CORR_MATRIX:
+        if plot_type == extaedio.amp_consts.PLOT_CORR_MATRIX:
             plot_data_dict["corr_method"] = param_initializer(
                 param_name="corr_method",
                 widget_params=dict(
@@ -1026,7 +1040,7 @@ def customize_plot():
                 ),
             )
         # Matrix plot
-        if plot_type == amp_consts.PLOT_SCATTER_MATRIX:
+        if plot_type == extaedio.amp_consts.PLOT_SCATTER_MATRIX:
             plot_data_dict["matrix_diag"] = param_initializer(
                 param_name="matrix_diag",
                 widget_params=dict(
@@ -1053,12 +1067,12 @@ def customize_plot():
             )
 
         # Hover data
-        if plot_type in amp_consts.PLOT_HAS_CUSTOM_HOVER_DATA:
+        if plot_type in extaedio.amp_consts.PLOT_HAS_CUSTOM_HOVER_DATA:
             plot_data_dict["hover_name"] = param_initializer(
                 param_name="hover_name",
                 widget_params=dict(
                     label="Hover name:",
-                    options=[amp_consts.NONE_SELECTED] + cat_columns,
+                    options=[extaedio.amp_consts.NONE_SELECTED] + cat_columns,
                     index=0,
                 ),
             )
@@ -1072,13 +1086,13 @@ def customize_plot():
                 ),
             )
     else:
-        if plot_type == amp_consts.PLOT_SCATTER_MATRIX:
+        if plot_type == extaedio.amp_consts.PLOT_SCATTER_MATRIX:
             plot_data_dict["matrix_diag"] = "Histogram"
             plot_data_dict["matrix_up"] = "scatter"
             plot_data_dict["matrix_down"] = "scatter"
-        if plot_type == amp_consts.PLOT_PCA_2D:
+        if plot_type == extaedio.amp_consts.PLOT_PCA_2D:
             plot_data_dict["show_loadings"] = False
-        if plot_type == amp_consts.PLOT_CORR_MATRIX:
+        if plot_type == extaedio.amp_consts.PLOT_CORR_MATRIX:
             plot_data_dict["corr_method"] = "pearson"
 
     if show_advanced_settings:
@@ -1125,7 +1139,7 @@ def customize_plot():
     else:
         report_comment = ""
 
-    if plot_type in amp_consts.PLOT_HAS_MODEL_DATA:
+    if plot_type in extaedio.amp_consts.PLOT_HAS_MODEL_DATA:
         show_variance_ratio = st.checkbox(
             label="Show explained variance",
             value=report.get("show_variance_ratio", False),
@@ -1133,9 +1147,9 @@ def customize_plot():
         show_additional_model_data = st.checkbox(
             label=(
                 lambda x: {
-                    amp_consts.PLOT_PCA_2D: "Components details",
-                    amp_consts.PLOT_PCA_3D: "Components details",
-                    amp_consts.PLOT_NCA: "Linear transformation learned",
+                    extaedio.amp_consts.PLOT_PCA_2D: "Components details",
+                    extaedio.amp_consts.PLOT_PCA_3D: "Components details",
+                    extaedio.amp_consts.PLOT_NCA: "Linear transformation learned",
                 }.get(x, "Error")
             )(plot_type),
             value=report.get("show_additional_model_data", False),
@@ -1157,7 +1171,7 @@ def customize_plot():
             )
         return
 
-    if plot_type in amp_consts.PLOT_HAS_PROGRESS_DISPLAY:
+    if plot_type in extaedio.amp_consts.PLOT_HAS_PROGRESS_DISPLAY:
         progress = st.progress(0)
 
         def update_progress(step, total):
@@ -1166,7 +1180,7 @@ def customize_plot():
     else:
         update_progress = None
 
-    if plot_type in amp_consts.PLOT_NEEDS_NA_DROP and df.isnull().values.any():
+    if plot_type in extaedio.amp_consts.PLOT_NEEDS_NA_DROP and df.isnull().values.any():
         st.markdown("NA values found in will be removed:")
         for c in all_columns:
             if df[c].isnull().values.any():
