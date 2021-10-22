@@ -497,7 +497,7 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
                         x=loadings[:, 0],
                         y=loadings[:, 1],
                         mode="text",
-                        text=num_columns,
+                        text=column_names,
                         opacity=0.7,
                         name="Loadings",
                     ),
@@ -525,12 +525,13 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
         elif plot_type == amp_consts.PLOT_QDA_2D:
             model_data = QuadraticDiscriminantAnalysis(store_covariance=True)
         x_new = model_data.fit(X, y=t).transform(X)
-        pc1_lbl = f"PC1 ({model_data.explained_variance_ratio_[0] * 100:.2f}%)"
-        pc2_lbl = f"PC2 ({model_data.explained_variance_ratio_[1] * 100:.2f}%)"
+        label_root = "LD" if plot_type == amp_consts.PLOT_LDA_2D else "QD"
+        pc1_lbl = f"{label_root}1 ({model_data.explained_variance_ratio_[0] * 100:.2f}%)"
+        pc2_lbl = f"{label_root}2 ({model_data.explained_variance_ratio_[1] * 100:.2f}%)"
         x = x_new[:, 0]
         y = x_new[:, 1]
-        df[pc1_lbl] = x * (1.0 / (x.max() - x.min()))
-        df[pc2_lbl] = y * (1.0 / (y.max() - y.min()))
+        df[pc1_lbl] = x / np.abs(x).max()
+        df[pc2_lbl] = y / np.abs(y).max()
         params["x"] = pc1_lbl
         params["y"] = pc2_lbl
         if is_anim:
@@ -541,8 +542,10 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
         fig = px.scatter(**params)
         if sl:
             loadings = np.transpose(model_data.coef_[0:2, :])
-            m = 1 / np.amax(loadings)
-            loadings = loadings * m
+            loadings[:, 0] = loadings[:, 0] / np.abs(loadings[:, 0]).max()
+            loadings[:, 1] = loadings[:, 1] / np.abs(loadings[:, 1]).max()
+            # m = 1 / np.amax(loadings)
+            # loadings = loadings * m
             xc, yc = [], []
             for i in range(loadings.shape[0]):
                 xc.extend([0, loadings[i, 0], None])
@@ -563,7 +566,7 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
                     x=loadings[:, 0],
                     y=loadings[:, 1],
                     mode="text",
-                    text=num_columns,
+                    text=column_names,
                     opacity=0.7,
                     name="Loadings",
                 ),
@@ -623,8 +626,9 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
         ):
             fig.update_traces(
                 marker=dict(
-                    size=12,
-                    line=dict(width=2, color="DarkSlateGrey"),
+                    size=8,
+                    line=dict(width=2),  # color="DarkSlateGrey"),
+                    opacity=0.7,
                 ),
                 selector=dict(mode="markers"),
             )
