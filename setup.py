@@ -43,7 +43,7 @@ setup(
     install_requires=[
         "streamlit",
         "pandas",
-        "numpy==1.19.2",
+        "numpy==1.21.0",
         "dash",
         "sklearn",
         "watchdog",
