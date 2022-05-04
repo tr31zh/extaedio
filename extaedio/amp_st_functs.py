@@ -14,7 +14,7 @@ def get_df_from_url(url):
 
 
 def load_dataframe(step: int, show_info):
-    st.header(f"Step {step} - Load dataframe in CSV format")
+    st.header(f"Step {step} - Load CSV file (dataframe")
 
     if show_info:
         st.info(
