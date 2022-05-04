@@ -219,7 +219,8 @@ def customize_plot():
     )
 
     use_side_bar = col_set_2.checkbox(
-        label="Plot settings to side bar", value=report.get("use_side_bar", True)
+        label="Plot settings to side bar",
+        value=report.get("use_side_bar", True),
     )
     if show_info:
         col_set_2.info(
@@ -425,7 +426,10 @@ def customize_plot():
         label="Plot type: ",
         options=plot_options,
         index=get_final_index(
-            default_index=0, options=plot_options, key="plot_type", overrides=report
+            default_index=0,
+            options=plot_options,
+            key="plot_type",
+            overrides=report,
         ),
     )
     st.header(
@@ -795,6 +799,17 @@ def customize_plot():
                 param_name="size_max",
                 widget_params=dict(
                     label="Max dot size", min_value=11, max_value=100, value=60
+                ),
+            )
+        if plot_type in amp_consts.PLOT_HAS_COMPONENT_LIMIT:
+            plot_data_dict["dimensions"] = param_initializer(
+                widget_type="number_input",
+                param_name="dimensions",
+                widget_params=dict(
+                    label="PC count",
+                    min_value=1,
+                    max_value=100,
+                    value=6,
                 ),
             )
         if plot_type in amp_consts.PLOT_HAS_SHAPE:

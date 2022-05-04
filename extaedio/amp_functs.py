@@ -115,6 +115,10 @@ def get_plot_help_digest(plot_type) -> str:
         These basis vectors are called principal components, and several related procedures 
         principal component analysis (PCA).
         """
+    elif plot_type in [amp_consts.PLOT_PCA_SCATTER]:
+        doc = """
+            PCA where all components are visualized one against the other
+        """
     elif plot_type == amp_consts.PLOT_CORR_MATRIX:
         doc = "Plot correlation matrix"
     elif plot_type == amp_consts.PLOT_LDA_2D:
@@ -246,6 +250,7 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
         if plot_type not in [
             amp_consts.PLOT_PCA_3D,
             amp_consts.PLOT_PCA_2D,
+            amp_consts.PLOT_PCA_SCATTER,
             amp_consts.PLOT_LDA_2D,
             amp_consts.PLOT_QDA_2D,
             amp_consts.PLOT_NCA,
@@ -406,7 +411,11 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
                         col=i + 1,
                     )
         fig.update_layout(barmode="stack")
-    elif plot_type in [amp_consts.PLOT_PCA_2D, amp_consts.PLOT_PCA_3D]:
+    elif plot_type in [
+        amp_consts.PLOT_PCA_2D,
+        amp_consts.PLOT_PCA_3D,
+        amp_consts.PLOT_PCA_SCATTER,
+    ]:
         X = df.loc[:, num_columns]
         ignored_columns = params.pop("ignore_columns", [])
         if ignored_columns:
@@ -430,7 +439,10 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
         if is_anim:
             params["range_x"] = [-1, 1]
             params["range_y"] = [-1, 1]
-        sl = params.pop("show_loadings") is True
+        try:
+            sl = params.pop("show_loadings") is True
+        except:
+            sl = None
         if plot_type in [amp_consts.PLOT_PCA_3D]:
             z = x_new[:, 2]
             pc3_lbl = f"PC3 ({model_data.explained_variance_ratio_[2] * 100:.2f}%)"
@@ -471,7 +483,7 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
                         name="Loadings",
                     ),
                 )
-        else:
+        elif plot_type in [amp_consts.PLOT_PCA_3D]:
             fig = px.scatter(**params)
             if sl:
                 loadings = np.transpose(model_data.components_[0:2, :])
@@ -502,6 +514,26 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
                         name="Loadings",
                     ),
                 )
+        elif plot_type in [amp_consts.PLOT_PCA_SCATTER]:
+            l = lambda x, y: x == y
+            params_ = {
+                "data_frame": x_new,
+                "labels": {str(i): f"PC {i+1}" for i in range(x_new.shape[1] - 1)},
+            }
+            if params["color"] is not None:
+                params_["color"] = df[params["color"]]
+            if params["dimensions"] is not None:
+                params_["dimensions"] = range(
+                    min(
+                        params["dimensions"],
+                        x_new.shape[1] - 1,
+                    )
+                )
+            if is_anim:
+                params_["range_x"] = [-1, 1]
+                params_["range_y"] = [-1, 1]
+            fig = px.scatter_matrix(**params_)
+            fig.update_traces(diagonal_visible=False)
     elif plot_type in [amp_consts.PLOT_LDA_2D, amp_consts.PLOT_QDA_2D]:
         X = df.loc[:, num_columns]
         ignored_columns = params.pop("ignore_columns", [])

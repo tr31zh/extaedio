@@ -42,6 +42,7 @@ PLOT_PARALLEL_COORDINATES = "Parallel coordinates"
 PLOT_SCATTER_MATRIX = "Scatter matrix"
 PLOT_PCA_2D = "PCA (2D)"
 PLOT_PCA_3D = "PCA (3D)"
+PLOT_PCA_SCATTER = "PCA scatter matrix"
 PLOT_LDA_2D = "Linear Discriminant Analysis"
 PLOT_QDA_2D = "Quadratic Discriminant Analysis"
 PLOT_CORR_MATRIX = "Correlation matrix"
@@ -69,6 +70,7 @@ ADVANCED_PLOTS = [
     PLOT_NCA,
     # PLOT_QDA_2D,
     PLOT_CORR_MATRIX,
+    PLOT_PCA_SCATTER,
 ]
 
 ALL_PLOTS = BASIC_PLOTS + ADVANCED_PLOTS
@@ -103,6 +105,7 @@ PLOT_HAS_COLOR = [
     PLOT_SCATTER,
     PLOT_SCATTER_3D,
     PLOT_PCA_2D,
+    PLOT_PCA_SCATTER,
     PLOT_PCA_3D,
     PLOT_LDA_2D,
     PLOT_NCA,
@@ -253,6 +256,7 @@ PLOT_HAS_IGNORE_COLUMNS = [
     PLOT_NCA,
     PLOT_QDA_2D,
     PLOT_PCA_2D,
+    PLOT_PCA_SCATTER,
     PLOT_PCA_3D,
 ]
 
@@ -274,13 +278,19 @@ PLOT_HAS_INIT = [
 
 PLOT_NEEDS_NA_DROP = [
     PLOT_PCA_2D,
+    PLOT_PCA_SCATTER,
     PLOT_PCA_3D,
 ]
 
 PLOT_HAS_MODEL_DATA = [
     PLOT_PCA_2D,
+    PLOT_PCA_SCATTER,
     PLOT_PCA_3D,
     PLOT_LDA_2D,
     PLOT_QDA_2D,
     PLOT_NCA,
+]
+
+PLOT_HAS_COMPONENT_LIMIT = [
+    PLOT_PCA_SCATTER,
 ]
