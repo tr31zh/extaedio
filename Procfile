@@ -1,1 +1,1 @@
-web: sh setup.sh && streamlit run ./extaedio/main.py
+web: sh setup.sh && streamlit run ./extaedio/st_main.py

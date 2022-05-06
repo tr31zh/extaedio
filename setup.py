@@ -17,7 +17,7 @@ README = (HERE / "README.md").read_text()
 # This call to setup() does all the work
 setup(
     name="extaedio",
-    version="0.9.1.123",
+    version="0.9.2.134",
     description="Dataframe plotter",
     long_description=README,
     long_description_content_type="text/markdown",
@@ -43,7 +43,7 @@ setup(
     install_requires=[
         "streamlit",
         "pandas",
-        "numpy==1.21.0",
+        "numpy",
         "dash",
         "sklearn",
         "watchdog",

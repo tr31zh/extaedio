@@ -1,8 +1,6 @@
 from collections import defaultdict
 from datetime import datetime as dt
-import base64
 import json
-import datetime
 
 import streamlit as st
 import pandas as pd
@@ -17,117 +15,15 @@ from amp_functs import (
     build_plot,
     get_plot_help_digest,
     get_plot_docstring,
+    get_final_index,
+    ParamInitializer,
+    apply_wrangling,
 )
-
-
-def get_final_index(default_index: int, options: list, key: str, overrides: dict) -> int:
-    if key in overrides:
-        return options.index(overrides[key])
-    else:
-        return default_index
-
-
-class ParamInitializer(object):
-    def __init__(self, parent, params_doc, overrides, show_help) -> None:
-        self._parent = parent
-        self._params_doc = params_doc
-        self._overrides = overrides
-        self._show_help = show_help
-
-    def __call__(
-        self,
-        param_name,
-        widget_params,
-        widget_type="selectbox",
-        doc_override=None,
-        lock: bool = False,
-    ):
-        if self._overrides and lock:
-            if param_name in self._overrides:
-                self._parent.markdown(
-                    f"**{param_name}** <- {self._overrides[param_name]}"
-                )
-                self._parent.info(f"**{param_name}** is locked in report mode")
-                ret = self._overrides[param_name]
-            else:
-                return None
-        elif widget_type:
-            f = getattr(self._parent, widget_type)
-            if param_name in self._overrides:
-                if "options" in widget_params and "index" in widget_params:
-                    widget_params["index"] = get_final_index(
-                        default_index=widget_params["index"],
-                        options=widget_params["options"],
-                        key=param_name,
-                        overrides=self._overrides,
-                    )
-                if "options" in widget_params and "default" in widget_params:
-                    widget_params["default"] = self._overrides[param_name]
-                elif "value" in widget_params:
-                    widget_params["value"] = self._overrides[param_name]
-
-            ret = None if f is None else f(**widget_params)
-        else:
-            ret = None
-
-        if ret == amp_consts.PICK_ONE:
-            self._parent.warning(
-                f"Please pic a column for the {widget_params.get('label', 'previous parameter')}."
-            )
-
-        if (self._show_help == "all") or (
-            (self._show_help == "mandatory") and (ret == amp_consts.PICK_ONE)
-        ):
-            self.print_help(
-                param_name=param_name,
-                params_doc=doc_override if doc_override is not None else self._params_doc,
-            )
-
-        return ret
-
-    def print_help(self, param_name, params_doc):
-        if isinstance(params_doc, str):
-            self._parent.markdown(params_doc)
-        else:
-            for k, v in params_doc.items():
-                p, *_ = k.split(":")
-                if p == param_name:
-                    self._parent.markdown("".join(v))
-                    break
-            else:
-                self._parent.warning(f"Missing doc for {param_name}")
-        self._parent.markdown("___")
 
 
 @st.cache
 def wrangle_the_data(df, dw_options):
-
-    # Sort
-    if dw_options["sort_columns"]:
-        df = df.sort_values(
-            dw_options["sort_columns"],
-            ascending=not dw_options["invert_sort"],
-        )
-
-    # Filter columns
-    df = df[dw_options["kept_columns"]]
-
-    # Filter rows
-    if len(dw_options["filters"]) > 0:
-        for k, v in dw_options["filters"].items():
-            df = df[df[k].isin(v)]
-
-    # Bin columns
-    if len(dw_options["binners"]) > 0:
-        for k, v in dw_options["binners"].items():
-            df[k] = pd.cut(df[k], v)
-
-    # Clean
-    if dw_options["remove_duplicates"] is True:
-        df = df.drop_duplicates()
-    if dw_options["remove_na"] is True:
-        df = df.dropna(axis="index")
-    return df
+    return apply_wrangling(df, dw_options=dw_options)
 
 
 def customize_plot():
