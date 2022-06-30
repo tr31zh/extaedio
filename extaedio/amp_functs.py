@@ -12,6 +12,7 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 from sklearn.neighbors import NeighborhoodComponentsAnalysis
 from sklearn.preprocessing import StandardScaler
+from sklearn.manifold import TSNE
 
 from dw_cssegis_data import get_wrangled_cssegis_df
 
@@ -483,7 +484,7 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
                         name="Loadings",
                     ),
                 )
-        elif plot_type in [amp_consts.PLOT_PCA_3D]:
+        elif plot_type in [amp_consts.PLOT_PCA_2D]:
             fig = px.scatter(**params)
             if sl:
                 loadings = np.transpose(model_data.components_[0:2, :])
@@ -534,6 +535,27 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
                 params_["range_y"] = [-1, 1]
             fig = px.scatter_matrix(**params_)
             fig.update_traces(diagonal_visible=False)
+    elif plot_type in [amp_consts.PLOT_TSNE_2D]:
+        X = df.loc[:, num_columns]
+        ignored_columns = params.pop("ignore_columns", [])
+        if ignored_columns:
+            X = X.drop(
+                list(set(ignored_columns).intersection(set(X.columns.to_list()))), axis=1
+            )
+        column_names = X.columns.to_list()
+        scaler = StandardScaler()
+        scaler.fit(X)
+        X = scaler.transform(X)
+        model_data = TSNE()
+        x_new = model_data.fit_transform(X)
+        x = x_new[:, 0]
+        y = x_new[:, 1]
+        params["x"] = x / np.abs(x).max()
+        params["y"] = y / np.abs(y).max()
+        if is_anim:
+            params["range_x"] = [-1, 1]
+            params["range_y"] = [-1, 1]
+        fig = px.scatter(**params)
     elif plot_type in [amp_consts.PLOT_LDA_2D, amp_consts.PLOT_QDA_2D]:
         X = df.loc[:, num_columns]
         ignored_columns = params.pop("ignore_columns", [])

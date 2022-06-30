@@ -1077,7 +1077,9 @@ def customize_plot():
                             "params": plot_data_dict,
                             "plot_type": plot_type,
                             "is_anim": is_anim,
-                            "dataframe": df.to_dict(),
+                            "dataframe": df[
+                                df.columns.drop(list(df.filter(regex="_pmgd")))
+                            ].to_dict(),
                             "comment": report_comment,
                             "ui_mode": ui_mode,
                             "param_help_level": param_help_level,
@@ -1144,7 +1146,9 @@ def customize_plot():
                             f"PC{i+1}": pc_data
                             for i, pc_data in enumerate(model_data.components_)
                         }
-                    ).set_index(pd.Series(fig_data["column_names"]))
+                    )
+                    .sort_values(["PC1"])
+                    .set_index(pd.Series(fig_data["column_names"]))
                 )
             if (
                 hasattr(model_data, "means_")
