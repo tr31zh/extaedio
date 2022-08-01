@@ -729,6 +729,7 @@ def customize_plot():
                 widget_params=dict(
                     label="Trend line mode",
                     options=options,
+                    index=0,
                     format_func=lambda x: {
                         "ols": "Ordinary Least Squares ",
                         "lowess": "Locally Weighted scatterplot Smoothing",
@@ -1057,15 +1058,9 @@ def customize_plot():
 
     if fig_data:
         if "figure" in fig_data:
-            html = fig_data.get("figure", None).to_html()
-            # b64 = base64.b64encode(html.encode()).decode()
-            # href = f"""<a href="data:file/html;base64,{b64}">
-            # Download plot as HTML file</a>
-            # (Does not work on windows)
-            # - right-click and save as &lt;some_name&gt;.html"""
-            # st.markdown(href, unsafe_allow_html=True)
             st.plotly_chart(
-                figure_or_data=fig_data.get("figure", None), use_container_width=True
+                figure_or_data=fig_data.get("figure", None),
+                use_container_width=True,
             )
 
             st.download_button(
