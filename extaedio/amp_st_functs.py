@@ -30,7 +30,6 @@ def load_dataframe(step: int, show_info):
         index=0,
         format_func=amp_functs.format_csv_link,
     )
-    return_selected_file = selected_file != amp_consts.URL_LOCAL_FILE
     if selected_file == amp_consts.URL_LOCAL_FILE:
         # st.set_option("deprecation.showfileUploaderEncoding", False)
         selected_file = st.file_uploader(
@@ -39,8 +38,7 @@ def load_dataframe(step: int, show_info):
         )
         if selected_file is None:
             return None
-        if isinstance(selected_file, st.uploaded_file_manager.UploadedFile):
-            selected_file = selected_file.read()
+        return pd.read_csv(selected_file).copy().reset_index(drop=True)
     elif selected_file == amp_consts.URL_DISTANT_FILE:
         selected_file = st.text_input(label="Paste web URL", value="")
         st.write(selected_file)
@@ -99,7 +97,9 @@ def set_anim_data(df, show_info: bool, plot_data_dict: dict, param_initializer, 
             cf_columns = [c.casefold() for c in df.columns.to_list()]
             if (
                 (plot_data_dict["time_column"].lower() in ["year", "month", "day"])
-                and (len(set(("year", "month", "day")).intersection(set(cf_columns))) > 0)
+                and (
+                    len(set(("year", "month", "day")).intersection(set(cf_columns))) > 0
+                )
                 and qs.checkbox(label='Merge "year", "month", "day" columns?')
             ):
                 src_columns = [c for c in df.columns.to_list()]
