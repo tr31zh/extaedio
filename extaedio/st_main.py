@@ -4,6 +4,7 @@ import json
 
 import streamlit as st
 import pandas as pd
+from pandas.api.types import is_datetime64_any_dtype as is_datetime
 import numpy as np
 
 import plotly.graph_objects as go
@@ -317,7 +318,9 @@ def customize_plot():
     qs.subheader("Plot selection")
 
     # Select type
-    plot_options = amp_consts.ALL_PLOTS if show_advanced_plots else amp_consts.BASIC_PLOTS
+    plot_options = (
+        amp_consts.ALL_PLOTS if show_advanced_plots else amp_consts.BASIC_PLOTS
+    )
     plot_type = qs.selectbox(
         label="Plot type: ",
         options=plot_options,
@@ -382,7 +385,9 @@ def customize_plot():
                 widget_params=dict(
                     label="Animation category group",
                     options=[amp_consts.NONE_SELECTED]
-                    + df.select_dtypes(include=["object", "datetime"]).columns.to_list(),
+                    + df.select_dtypes(
+                        include=["object", "datetime"]
+                    ).columns.to_list(),
                     index=0,
                 ),
             )
@@ -400,7 +405,9 @@ def customize_plot():
     cat_columns = df.select_dtypes(
         include=["object", "datetime", "int64"]
     ).columns.to_list()
-    supervision_columns = df.select_dtypes(include=["object", "number"]).columns.to_list()
+    supervision_columns = df.select_dtypes(
+        include=["object", "number"]
+    ).columns.to_list()
     all_columns = df.columns.to_list()
 
     if plot_type in amp_consts.PLOT_HAS_X:
@@ -546,7 +553,7 @@ def customize_plot():
             return
         elif (
             plot_data_dict["target"]
-            in df.select_dtypes(include=[np.float]).columns.to_list()
+            in df.select_dtypes(include=[float]).columns.to_list()
             and show_info
         ):
             qs.info("Non discrete columns will be rounded")
@@ -567,7 +574,9 @@ def customize_plot():
     # Ignored columns
     if plot_type in amp_consts.PLOT_HAS_IGNORE_COLUMNS:
         default_ignored_columns = (
-            [plot_data_dict["target"]] if plot_type in amp_consts.PLOT_HAS_TARGET else []
+            [plot_data_dict["target"]]
+            if plot_type in amp_consts.PLOT_HAS_TARGET
+            else []
         )
         if is_anim:
             default_ignored_columns.append(plot_data_dict["time_column"])
@@ -718,7 +727,9 @@ def customize_plot():
                 ),
             )
         if plot_type in amp_consts.PLOT_HAS_TREND_LINE:
-            allowed = plot_data_dict["x"] in df.select_dtypes(include=np.number)
+            allowed = plot_data_dict["x"] in df.select_dtypes(
+                include=np.number
+            ) or is_datetime(df[plot_data_dict["x"]])
             options = (
                 [amp_consts.NONE_SELECTED, "ols", "lowess"]
                 if allowed is True
@@ -826,7 +837,9 @@ def customize_plot():
                 ),
             )
             plot_data_dict["points"] = (
-                plot_data_dict["points"] if plot_data_dict["points"] != "none" else False
+                plot_data_dict["points"]
+                if plot_data_dict["points"] != "none"
+                else False
             )
         # Box plots
         if plot_type == amp_consts.PLOT_BOX:
@@ -1063,6 +1076,9 @@ def customize_plot():
                 use_container_width=True,
             )
 
+            json_df = df.copy()
+            if "date_time" in json_df:
+                json_df.date_time = json_df.date_time.astype(str)
             st.download_button(
                 label="Download plot configuration as json",
                 key="dwl_btn",
@@ -1072,8 +1088,10 @@ def customize_plot():
                             "params": plot_data_dict,
                             "plot_type": plot_type,
                             "is_anim": is_anim,
-                            "dataframe": df[
-                                df.columns.drop(list(df.filter(regex="_pmgd")))
+                            "dataframe": json_df[
+                                json_df.columns.drop(
+                                    list(json_df.filter(regex="_pmgd"))
+                                )
                             ].to_dict(),
                             "comment": report_comment,
                             "ui_mode": ui_mode,

@@ -38,7 +38,13 @@ def load_dataframe(step: int, show_info):
         )
         if selected_file is None:
             return None
-        return pd.read_csv(selected_file).copy().reset_index(drop=True)
+        df = pd.read_csv(selected_file)
+        if "date_time" in df:
+            try:
+                df.date_time = pd.to_datetime(df.date_time, format="ISO8601")
+            except:
+                pass
+        return df
     elif selected_file == amp_consts.URL_DISTANT_FILE:
         selected_file = st.text_input(label="Paste web URL", value="")
         st.write(selected_file)

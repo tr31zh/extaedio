@@ -227,7 +227,6 @@ def get_dataframe_from_url(url):
 
 
 def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
-
     params = dict(**kwargs)
     for k, v in params.items():
         if v == amp_consts.NONE_SELECTED:
@@ -315,7 +314,9 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
         if color_column is not None:
             template_colors = pio.templates[params.get("template")].layout["colorway"]
             if template_colors is None:
-                template_colors = pio.templates[pio.templates.default].layout["colorway"]
+                template_colors = pio.templates[pio.templates.default].layout[
+                    "colorway"
+                ]
             color_count = len(df[color_column].unique())
             if len(template_colors) >= color_count:
                 pass
@@ -421,7 +422,8 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
         ignored_columns = params.pop("ignore_columns", [])
         if ignored_columns:
             X = X.drop(
-                list(set(ignored_columns).intersection(set(X.columns.to_list()))), axis=1
+                list(set(ignored_columns).intersection(set(X.columns.to_list()))),
+                axis=1,
             )
         column_names = X.columns.to_list()
         scaler = StandardScaler()
@@ -540,7 +542,8 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
         ignored_columns = params.pop("ignore_columns", [])
         if ignored_columns:
             X = X.drop(
-                list(set(ignored_columns).intersection(set(X.columns.to_list()))), axis=1
+                list(set(ignored_columns).intersection(set(X.columns.to_list()))),
+                axis=1,
             )
         column_names = X.columns.to_list()
         scaler = StandardScaler()
@@ -561,12 +564,13 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
         ignored_columns = params.pop("ignore_columns", [])
         if ignored_columns:
             X = X.drop(
-                list(set(ignored_columns).intersection(set(X.columns.to_list()))), axis=1
+                list(set(ignored_columns).intersection(set(X.columns.to_list()))),
+                axis=1,
             )
         column_names = X.columns.to_list()
         if params["target"] in df.select_dtypes(include=["object"]).columns.to_list():
             t = df[params["target"]].astype("category").cat.codes
-        elif params["target"] in df.select_dtypes(include=[np.float]).columns.to_list():
+        elif params["target"] in df.select_dtypes(include=[float]).columns.to_list():
             t = df[params["target"]].astype("int")
         else:
             t = df[params["target"]]
@@ -580,8 +584,12 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
             model_data = QuadraticDiscriminantAnalysis(store_covariance=True)
         x_new = model_data.fit(X, y=t).transform(X)
         label_root = "LD" if plot_type == amp_consts.PLOT_LDA_2D else "QD"
-        pc1_lbl = f"{label_root}1 ({model_data.explained_variance_ratio_[0] * 100:.2f}%)"
-        pc2_lbl = f"{label_root}2 ({model_data.explained_variance_ratio_[1] * 100:.2f}%)"
+        pc1_lbl = (
+            f"{label_root}1 ({model_data.explained_variance_ratio_[0] * 100:.2f}%)"
+        )
+        pc2_lbl = (
+            f"{label_root}2 ({model_data.explained_variance_ratio_[1] * 100:.2f}%)"
+        )
         x = x_new[:, 0]
         y = x_new[:, 1]
         df[pc1_lbl] = x / np.abs(x).max()
@@ -630,12 +638,13 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
         ignored_columns = params.pop("ignore_columns", [])
         if ignored_columns:
             X = X.drop(
-                list(set(ignored_columns).intersection(set(X.columns.to_list()))), axis=1
+                list(set(ignored_columns).intersection(set(X.columns.to_list()))),
+                axis=1,
             )
         column_names = X.columns.to_list()
         if params["target"] in df.select_dtypes(include=["object"]).columns.to_list():
             t = df[params["target"]].astype("category").cat.codes
-        elif params["target"] in df.select_dtypes(include=[np.float]).columns.to_list():
+        elif params["target"] in df.select_dtypes(include=[float]).columns.to_list():
             t = df[params["target"]].astype("int")
         else:
             t = df[params["target"]]
@@ -697,7 +706,9 @@ def build_plot(is_anim, plot_type, df, progress=None, **kwargs) -> dict:
     }
 
 
-def get_final_index(default_index: int, options: list, key: str, overrides: dict) -> int:
+def get_final_index(
+    default_index: int, options: list, key: str, overrides: dict
+) -> int:
     if key in overrides:
         return options.index(overrides[key])
     else:
@@ -757,7 +768,9 @@ class ParamInitializer(object):
         ):
             self.print_help(
                 param_name=param_name,
-                params_doc=doc_override if doc_override is not None else self._params_doc,
+                params_doc=doc_override
+                if doc_override is not None
+                else self._params_doc,
             )
 
         return ret
