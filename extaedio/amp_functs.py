@@ -2,6 +2,8 @@ import io
 import pandas as pd
 import numpy as np
 
+from pandas.api.types import is_datetime64_any_dtype as is_datetime
+
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
@@ -191,6 +193,26 @@ def add_2d_hist(fig, x, y, row, col, legend=False):
         row=row,
         col=col,
     )
+
+
+def str_to_datetime(df: pd.DataFrame) -> pd.DataFrame:
+    cols = [col for col in df.columns if "time" in col or "date" in col]
+    for col in cols:
+        try:
+            df[col] = pd.to_datetime(df[col], format="ISO8601")
+        except:
+            pass
+    return df
+
+
+def datetime_to_str(df: pd.DataFrame) -> pd.DataFrame:
+    cols = [col for col in df.columns if is_datetime(df[col])]
+    for col in cols:
+        try:
+            df[col] = df[col].astype(str)
+        except:
+            pass
+    return df
 
 
 def get_dataframe_from_url(url):

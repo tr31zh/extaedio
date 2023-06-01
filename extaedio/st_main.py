@@ -19,6 +19,8 @@ from amp_functs import (
     get_final_index,
     ParamInitializer,
     apply_wrangling,
+    str_to_datetime,
+    datetime_to_str,
 )
 
 
@@ -30,7 +32,7 @@ def wrangle_the_data(df, dw_options):
 def customize_plot():
     st.set_page_config(
         page_title="Extaedio",
-        page_icon="🧊",
+        page_icon="𝜒",
         layout="wide",
         initial_sidebar_state="expanded",
     )
@@ -172,6 +174,8 @@ def customize_plot():
         step += 1
     if df is None:
         return
+
+    df = str_to_datetime(df)
 
     dw_options = {}
 
@@ -1076,9 +1080,7 @@ def customize_plot():
                 use_container_width=True,
             )
 
-            json_df = df.copy()
-            if "date_time" in json_df:
-                json_df.date_time = json_df.date_time.astype(str)
+            json_df = datetime_to_str(df)
             st.download_button(
                 label="Download plot configuration as json",
                 key="dwl_btn",
