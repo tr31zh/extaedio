@@ -175,7 +175,7 @@ def customize_plot():
     if df is None:
         return
 
-    df = str_to_datetime(df)
+    # df = str_to_datetime(df)
 
     dw_options = {}
 
@@ -731,9 +731,11 @@ def customize_plot():
                 ),
             )
         if plot_type in amp_consts.PLOT_HAS_TREND_LINE:
-            allowed = plot_data_dict["x"] in df.select_dtypes(
-                include=np.number
-            ) or is_datetime(df[plot_data_dict["x"]])
+            allowed = (
+                plot_data_dict["x"] in df.select_dtypes(include=np.number)
+                or "time" in plot_data_dict["x"].lower()
+                or "date" in plot_data_dict["x"].lower()
+            )
             options = (
                 [amp_consts.NONE_SELECTED, "ols", "lowess"]
                 if allowed is True
@@ -1068,7 +1070,7 @@ def customize_plot():
     fig_data = build_plot(
         is_anim=is_anim,
         plot_type=plot_type,
-        df=df.copy(),
+        df=str_to_datetime(df.copy()),
         progress=update_progress,
         **plot_data_dict,
     )
