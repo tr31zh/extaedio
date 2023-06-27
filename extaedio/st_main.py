@@ -1,10 +1,8 @@
 from collections import defaultdict
-from datetime import datetime as dt
 import json
 
 import streamlit as st
 import pandas as pd
-from pandas.api.types import is_datetime64_any_dtype as is_datetime
 import numpy as np
 
 import plotly.graph_objects as go
@@ -61,7 +59,7 @@ def customize_plot():
     st.markdown("""___""")
 
     col_set_1, col_set_2 = st.columns(2)
-    col_set_1.header(f"Settings:")
+    col_set_1.header("Settings:")
     col_set_2.header("")
     ui_modes = [
         "no_choice_all_help",
