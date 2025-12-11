@@ -7,7 +7,7 @@ Ex Taedio is a dashboard built using [Streamlit](https://www.streamlit.io/) and 
 
 ## Getting Started
 
-Ex Taedio is available as an heroku app [here](https://extaedio.herokuapp.com/) but you can also build it yourself following these instructions.
+Ex Taedio is available as an Streamlit app [here](https://extaedio.streamlit.app/) but you can also build it yourself following these instructions.
 
 ### Prerequisites
 
@@ -147,10 +147,6 @@ Ex Taedio is available as an heroku app [here](https://extaedio.herokuapp.com/) 
 
     Plot correlation matrix
 
-## Deployment
-
-Ex Taedio has been deployed to [Heroku](www.heroku.com). At the moment of writing this readme the deployment can be done with the wizard in heroku's dashboard.
-
 ## Built With
 
 - [Streamlit](https://www.streamlit.io/) - The framework used to build the dashboard.
@@ -162,7 +158,6 @@ Ex Taedio has been deployed to [Heroku](www.heroku.com). At the moment of writin
 
 - Fix trend lines
 - Add seaborn version
-- Add save restore plot co,figuration
 
 ## Contributing
 
